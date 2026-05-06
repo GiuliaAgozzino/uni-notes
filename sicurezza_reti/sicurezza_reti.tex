@@ -165,4 +165,71 @@ non sarà autorizzato a seguirlo.
 
 
 
+Nel programma vulnerabile analizzato, l'UID effettivo del processo è root 
+e la directory \texttt{/tmp} è anch'essa di proprietà di root. Con la 
+protezione dei collegamenti simbolici abilitata, il sistema operativo 
+permette di seguire un symlink solo quando il proprietario del collegamento 
+corrisponde all'UID effettivo del processo che lo vuole seguire, oppure al 
+proprietario della directory in cui si trova.
+
+Nel nostro scenario, un attaccante con utente \texttt{seed} che crea un 
+collegamento simbolico in \texttt{/tmp} ne diventa il proprietario. Quando 
+il programma privilegiato tenta di seguirlo, il sistema confronta il 
+proprietario del link (\texttt{seed}) con l'EID del processo (root) e con 
+il proprietario di \texttt{/tmp} (root): nessuna delle due condizioni è 
+soddisfatta, quindi l'accesso viene negato. L'unico modo per creare un 
+collegamento simbolico che il programma possa seguire sarebbe che fosse 
+root stesso a crearlo, rendendo di fatto impossibile lo sfruttamento della 
+vulnerabilità da parte di un utente non privilegiato.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.6\textwidth]{immagini/6.png}
+\end{figure}
+
+\textbf{Piccolo riassunto della terminologia}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|l|p{7cm}|}
+\hline
+\textbf{Concetto} & \textbf{Valore (nel nostro caso)} & \textbf{Significato} \\
+\hline
+UID reale & seed & Chi ha effettivamente lanciato il programma \\
+\hline
+UID effettivo (EID) & root (0) & Con quali privilegi il processo sta girando \\
+\hline
+Proprietario del file & root & Chi possiede il file eseguibile \\
+\hline
+Bit Set-UID & attivo & Fa sì che il processo giri con i privilegi del proprietario del file \\
+\hline
+Proprietario di \texttt{/tmp} & root & Chi possiede la directory temporanea \\
+\hline
+\end{tabular}
+
+\end{table}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Funzione} & \textbf{Controlla} & \textbf{Conseguenza nel TOCTTOU} \\
+\hline
+\texttt{access()} & UID reale (seed) & Controlla i permessi dell'utente reale \\
+\hline
+\texttt{open()} & UID effettivo (root) & Apre qualsiasi file perché EID è root \\
+\hline
+\texttt{fstat()} & inode del file & Verifica che il file non sia cambiato \\
+\hline
+\end{tabular}
+\end{table}
+
+
+\textbf{Principio del privilegio minimo}
+\textbf{Un programma non dovrebbe utilizzare più privilegi di 
+quelli necessari all'attività.}
+
+Il nostro programma vulnerabile dispone di più privilegi del 
+necessario durante l'apertura del file.
+
 \end{document}
