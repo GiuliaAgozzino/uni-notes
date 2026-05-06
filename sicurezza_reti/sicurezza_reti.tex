@@ -255,5 +255,15 @@ collegamento simbolico a un file di sistema protetto come
 vengono ripristinati solo al termine dell'operazione, se necessari per 
 le fasi successive del programma.
 
+\subsection*{Dirty COW Race Condition Attack}
+Caso interessante della vulnerabilità della race condition. Esistente nel kernel Linux da settembre 2007, è stato scoperto 
+e attaccato nell'ottobre 2016. Interessa tutti i sistemi operativi basati su Linux, incluso Android.
+
+\textbf{Conseguenze:} 
+\begin{itemize}
+    \item Modifica i file protetti come /etc/passwd
+    \item Ottieni i privilegi di root sfruttando la vulnerabilità.
+\end{itemize}
+
 
 \end{document}
