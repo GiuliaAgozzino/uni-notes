@@ -225,11 +225,35 @@ Proprietario di \texttt{/tmp} & root & Chi possiede la directory temporanea \\
 \end{table}
 
 
-\textbf{Principio del privilegio minimo}
-\textbf{Un programma non dovrebbe utilizzare più privilegi di 
-quelli necessari all'attività.}
+\subsection*{Contromisura: Principio del Privilegio Minimo}
 
-Il nostro programma vulnerabile dispone di più privilegi del 
-necessario durante l'apertura del file.
+Il principio del privilegio minimo stabilisce che un programma non 
+dovrebbe mai utilizzare più privilegi di quelli strettamente necessari 
+all'operazione che sta svolgendo. Nel programma vulnerabile analizzato, 
+il processo gira con EID root per tutta la sua esecuzione, anche durante 
+operazioni che non richiedono privilegi elevati, come l'apertura di un 
+file in \texttt{/tmp}.
+
+La soluzione consiste nel ridurre temporaneamente i privilegi subito 
+prima di aprire il file, impostando l'EID uguale al RID tramite 
+\texttt{seteuid()}:
+
+\begin{verbatim}
+uid_t real_uid = getuid();
+uid_t eff_uid  = geteuid();
+seteuid(real_uid);           // EID diventa seed
+f = open("/tmp/X", O_WRITE);
+seteuid(eff_uid);            // EID ripristinato a root
+\end{verbatim}
+
+In questo modo, nel momento in cui \texttt{open()} viene eseguita, il 
+processo ha i privilegi dell'utente reale e non di root. Anche se 
+l'attaccante fosse riuscito a sostituire \texttt{/tmp/X} con un 
+collegamento simbolico a un file di sistema protetto come 
+\texttt{/etc/passwd}, l'apertura fallirebbe perché l'utente 
+\texttt{seed} non dispone dei permessi necessari. I privilegi di root 
+vengono ripristinati solo al termine dell'operazione, se necessari per 
+le fasi successive del programma.
+
 
 \end{document}
