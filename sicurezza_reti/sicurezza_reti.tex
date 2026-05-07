@@ -367,4 +367,127 @@ Il file viene mappato nella \textbf{memoria privata} del processo chiamante, con
     \centering
     \includegraphics[width=0.6\textwidth]{immagini/12.png}
 \end{figure}
+
+\subsection*{Copy-on-Write (CoW)}
+
+La tecnica \textbf{Copy-on-Write} (CoW) consente alla memoria virtuale di diversi processi di mapparsi alle stesse pagine di memoria fisica, quando queste hanno contenuti identici.
+
+Quando un processo figlio viene creato tramite la chiamata di sistema \texttt{fork()}:
+\begin{itemize}
+    \item Il sistema operativo consente al processo figlio di \textbf{condividere la memoria} del processo padre, facendo in modo che le voci della tabella delle pagine puntino alla stessa memoria fisica.
+    \item Se la memoria viene \textbf{solo letta}, non è necessaria alcuna copia.
+    \item Se un processo tenta di \textbf{scrivere} nella memoria condivisa, viene sollevata un'eccezione e il sistema operativo:
+    \begin{enumerate}
+        \item Alloca un nuovo blocco di memoria fisica per il processo figlio (\textit{pagina sporca}).
+        \item Copia il contenuto dal processo genitore al nuovo blocco.
+        \item Modifica la tabella delle pagine di ciascun processo (genitore e figlio) in modo che ognuno punti alla propria copia privata.
+    \end{enumerate}
+\end{itemize}
+
+\subsection*{Eliminare la memoria copiata: \texttt{madvise()}}
+
+\begin{lstlisting}[language=C]
+int madvise(void *addr, size_t length, int advice)
+\end{lstlisting}
+
+La funzione \texttt{madvise()} fornisce consigli o indicazioni al kernel riguardo alla memoria compresa tra \texttt{addr} e \texttt{addr + length}.
+
+Il terzo argomento \texttt{advice} può assumere il valore \texttt{MADV\_DONTNEED}:
+\begin{itemize}
+    \item Segnala al kernel che la regione di memoria indicata \textbf{non è più necessaria}.
+    \item Il kernel libera le risorse fisiche associate a quell'indirizzo.
+    \item La tabella delle pagine del processo viene aggiornata in modo da puntare nuovamente alla \textbf{memoria fisica originale} (pre-CoW).
+    \item Di conseguenza, tutte le modifiche effettuate sulla copia privata vengono \textbf{scartate}.
+\end{itemize}
+
+\section{Mappatura di file di sola lettura}
+
+\subsection{Scenario}
+
+Consideriamo un file \texttt{/zzz} nella directory principale, di proprietà di \texttt{root} e leggibile dagli altri utenti:
+
+\begin{lstlisting}[language=bash]
+$ ls -ld zzz
+-rw-r--r-- 1 root root 6447 Nov  8 16:25 zzz
+$ cat /zzz
+1111111111111111111111111111
+\end{lstlisting}
+
+Se si dispone di un account utente non privilegiato (\texttt{seed}):
+\begin{itemize}
+    \item Il file può essere aperto \textbf{solo in lettura} (\texttt{O\_RDONLY}).
+    \item La mappatura in memoria deve usare il flag \texttt{PROT\_READ}: la memoria risulta quindi di \textbf{sola lettura}.
+    \item Normalmente non è possibile scrivere in questa memoria.
+    \item Tuttavia, se il file viene mappato con \texttt{MAP\_PRIVATE}, il sistema operativo fa un'eccezione e \textbf{consente la scrittura}, ma tramite un percorso alternativo: invece di operazioni dirette in memoria (come \texttt{memcpy()}), si utilizza la chiamata di sistema \texttt{write()} attraverso il filesystem \texttt{/proc}.
+\end{itemize}
+
+\subsection{Il codice}
+
+\begin{lstlisting}[language=C, caption={Mapping read-only di un file con CoW}]
+int main(int argc, char *argv[])
+{
+    char *content = "**New content**";
+    char buffer[30];
+    struct stat st;
+    void *map;
+
+    // Apre il file in sola lettura
+    int f = open("/zzz", O_RDONLY);
+    fstat(f, &st);
+
+    // (1) Mappa /zzz in memoria di sola lettura con MAP_PRIVATE
+    map = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, f, 0);
+
+    // (2) Apre il pseudo-file di memoria del processo tramite /proc
+    int fm = open("/proc/self/mem", O_RDWR);
+
+    // (3) Sposta il puntatore al quinto byte dall'inizio della memoria mappata
+    lseek(fm, (off_t) map + 5, SEEK_SET);
+
+    // (4) Scrive nella memoria (attiva il meccanismo Copy-on-Write)
+    write(fm, content, strlen(content));
+
+    // Verifica che la scrittura sia avvenuta con successo
+    memcpy(buffer, map, 29);
+    printf("Content after write: %s\n", buffer);
+
+    // (5) Comunica al kernel che la copia privata non e' piu' necessaria
+    madvise(map, st.st_size, MADV_DONTNEED);
+
+    memcpy(buffer, map, 29);
+    printf("Content after madvise: %s\n", buffer);
+}
+\end{lstlisting}
+
+\subsection{Spiegazione riga per riga}
+
+\begin{itemize}
+    \item \textbf{Riga 1}: Mappa \texttt{/zzz} in memoria di sola lettura con \texttt{MAP\_PRIVATE}. Non è possibile scrivere direttamente in memoria, ma è possibile farlo indirettamente tramite il filesystem.
+    
+    \item \textbf{Riga 2}: Tramite il filesystem \texttt{/proc}, un processo può usare \texttt{read()}, \texttt{write()} e \texttt{lseek()} per accedere alla propria memoria. Il file \texttt{/proc/self/mem} è lo pseudo-file che rappresenta lo spazio di memoria del processo corrente.
+    
+    \item \textbf{Riga 3}: La chiamata \texttt{lseek()} sposta il puntatore del file al \textbf{5° byte} dall'inizio della regione di memoria mappata.
+    
+    \item \textbf{Riga 4}: La chiamata \texttt{write()} scrive la stringa \texttt{"**New content**"} nella memoria. Questo percorso \textbf{attiva il meccanismo Copy-on-Write}: il sistema operativo crea una copia privata della pagina e la scrittura avviene su di essa. Il file originale \textbf{non viene modificato}.
+    
+    \item \textbf{Riga 5}: \texttt{madvise()} con \texttt{MADV\_DONTNEED} segnala al kernel che la copia privata non è più necessaria. La tabella delle pagine viene reindirizzata alla \textbf{memoria mappata originale}, annullando le modifiche alla copia privata.
+\end{itemize}
+
+\subsection{Risultato dell'esecuzione}
+
+\begin{lstlisting}[language=bash]
+$ gcc cow_map_readonly_file.c
+$ a.out
+Content after write:   11111**New content**111111111
+Content after madvise: 1111111111111111111111111111
+$ cat /zzz
+1111111111111111111111111111
+\end{lstlisting}
+
+\begin{itemize}
+    \item \textbf{Dopo la scrittura}: la memoria mappata mostra il contenuto modificato, poiché la scrittura ha agito sulla \textbf{copia privata} (CoW).
+    \item \textbf{Dopo \texttt{madvise()}}: il contenuto torna a quello originale, poiché la copia privata viene scartata e la tabella delle pagine punta di nuovo alla memoria fisica originale.
+    \item \textbf{Il file \texttt{/zzz} non è mai stato modificato}: le modifiche riguardano esclusivamente la copia in memoria del processo.
+\end{itemize}
 \end{document}
+
