@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.20)  7 MAY 2026 11:12
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.20)  7 MAY 2026 14:12
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -811,7 +811,7 @@ Overfull \hbox (3.00354pt too wide) in paragraph at lines 649--650
 [][][][][][][][][][][][][][][][][][] 
  []
 
-[16] (sicurezza_reti.aux)
+[16] [17] [18] (sicurezza_reti.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2025-12-24>
@@ -840,9 +840,9 @@ s/giuli/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmsy10.pfb
 mti10.pfb><C:/Users/giuli/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsf
 onts/cm/cmtt10.pfb><C:/Users/giuli/AppData/Local/Programs/MiKTeX/fonts/type1/pu
 blic/amsfonts/cm/cmtt12.pfb>
-Output written on sicurezza_reti.pdf (16 pages, 557504 bytes).
+Output written on sicurezza_reti.pdf (18 pages, 564889 bytes).
 PDF statistics:
- 146 PDF objects out of 1000 (max. 8388607)
+ 152 PDF objects out of 1000 (max. 8388607)
  0 named destinations out of 1000 (max. 500000)
  58 words of extra memory for PDF output out of 10000 (max. 10000000)
 

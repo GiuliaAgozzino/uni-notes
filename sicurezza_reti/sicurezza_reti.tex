@@ -653,6 +653,92 @@ Grazie alla race condition, la scrittura \textbf{bypassa il meccanismo CoW} e mo
 
 
 
+\section{Meltdown e Spectre}
+
+
+
+\textbf{Meltdown} e \textbf{Spectre} sono i soprannomi assegnati a tre gravi vulnerabilità hardware scoperte nel 2017:
+
+\begin{itemize}
+    \item \textbf{Variant 1} --- Bounds Check Bypass (CVE-2017-5753) $\rightarrow$ \textit{Spectre}
+    \item \textbf{Variant 2} --- Branch Target Injection (CVE-2017-5715) $\rightarrow$ \textit{Spectre}
+    \item \textbf{Variant 3} --- Rogue Data Cache Load (CVE-2017-5754) $\rightarrow$ \textit{Meltdown}
+\end{itemize}
+
+Le varianti 1 e 2 costituiscono \textbf{Spectre}, mentre la variante 3 costituisce \textbf{Meltdown}.
+
+\subsection*{Sistemi vulnerabili}
+
+Le vulnerabilità colpiscono la maggior parte dei moderni processori, server e dispositivi mobili (inclusi gli Apple SoC):
+
+\begin{itemize}
+    \item \textbf{Meltdown}: processori Intel, ARM, IBM su desktop, laptop e cloud.
+    \item \textbf{Spectre}: processori Intel, AMD, ARM, IBM su desktop, laptop, cloud server e smartphone.
+    \item Entrambe le vulnerabilità sono indipendenti dal sistema operativo: colpiscono Linux, Windows, macOS e altri.
+\end{itemize}
+
+\subsection*{Cosa attaccano}
+
+\begin{itemize}
+    \item \textbf{Meltdown}: rompe l'isolamento fondamentale tra le applicazioni utente e il sistema operativo. Permette a un programma di accedere alla memoria, e quindi ai segreti, di altri programmi e del kernel.
+    
+    \item \textbf{Spectre}: rompe l'isolamento tra diverse applicazioni. Consente a un attaccante di ingannare programmi privi di errori, inducendoli a divulgare informazioni riservate, anche se questi seguono le migliori pratiche di sicurezza.
+\end{itemize}
+
+
+Entrambi gli attacchi sfruttano tre caratteristiche dei moderni processori:
+
+\begin{enumerate}
+    \item \textbf{Out-of-Order Execution} (esecuzione fuori ordine)
+    \item \textbf{Speculative Execution} (esecuzione speculativa)
+    \item \textbf{Caching} (memorizzazione nella cache)
+\end{enumerate}
+
+Entrambi gli attacchi utilizzano un \textbf{canale laterale} (\textit{side channel}) per ricavare informazioni dagli accessi in memoria effettuati dalla CPU durante l'esecuzione fuori ordine o speculativa.
+
+\subsection{Out-of-Order Execution}
+
+L'\textbf{esecuzione fuori ordine} è un paradigma di elaborazione che consente ai microprocessori ad alte prestazioni di iniziare l'esecuzione di un'istruzione non appena i suoi operandi sono disponibili, indipendentemente dall'ordine originale del programma.
+
+\begin{itemize}
+    \item Le istruzioni vengono \textit{emesse} in ordine, ma possono essere \textit{eseguite} in ordine diverso.
+    \item L'obiettivo è evitare gli \textbf{stalli} (\textit{stalls}) che si verificano quando i dati necessari per un'operazione non sono ancora disponibili.
+\end{itemize}
+
+I passi dell'esecuzione fuori ordine sono i seguenti:
+
+\begin{enumerate}
+    \item \textbf{Fetch}:  Recupero delle istruzioni dalla memoria.
+    \item \textbf{Dispatch}: Invio delle istruzioni a una coda (chiamato anche buffer o prenotazione di istruzioni).
+    \item \textbf{Attesa}: l L'istruzione attende in coda finché i suoi operandi di ingresso non sono disponibili. L'istruzione 
+può quindi lasciare la coda
+    \item \textbf{Esecuzione}:  L'istruzione viene impartita all'unità funzionale appropriata ed eseguita da tale unità
+    \item \textbf{Accodamento risultati}:  I risultati vengono messi in coda
+    \item \textbf{Commit}: Solo dopo che tutte le istruzioni più vecchie hanno riscritto i risultati nel file di registro, questo 
+risultato viene riscritto nel file di registro.
+\end{enumerate}
+
+\subsection{Speculative Execution}
+
+L'\textbf{esecuzione speculativa} è una tecnica usata dalle moderne CPU per migliorare le prestazioni: il processore esegue alcune operazioni \textit{in anticipo}, ipotizzando che saranno necessarie.
+
+\begin{itemize}
+    \item Se l'ipotesi è \textbf{corretta}: si ottiene un'accelerazione, poiché il lavoro è già completato.
+    \item Se l'ipotesi è \textbf{errata}: le modifiche vengono annullate e i risultati vengono scartati.
+\end{itemize}
+
+Il problema di sicurezza nasce dal fatto che, anche quando i risultati speculativi vengono annullati, gli \textbf{effetti collaterali} sulla cache della CPU possono rimanere osservabili.
+
+\subsection*{Caching}
+
+La \textbf{cache} è una memoria ad accesso molto rapido che la CPU utilizza per ridurre i tempi di accesso alla memoria principale (RAM). Il suo funzionamento si basa su due principi fondamentali:
+
+\begin{itemize}
+    \item \textbf{Località temporale}: un dato a cui si è acceduto di recente è probabile che venga richiesto di nuovo a breve (es. un contatore in un ciclo).
+    \item \textbf{Località spaziale}: un dato vicino a uno già acceduto è probabile che venga richiesto presto (es. elementi consecutivi di un array).
+\end{itemize}
+
+La differenza di tempo tra un accesso in cache (\textit{cache hit}) e un accesso in RAM (\textit{cache miss}) è alla base del \textbf{side channel} utilizzato da Meltdown e Spectre: misurando il tempo di accesso a specifiche locazioni di memoria, un attaccante può dedurre quali indirizzi sono stati caricati in cache durante l'esecuzione speculativa, rivelando così informazioni riservate.
 
 \end{document}
 
