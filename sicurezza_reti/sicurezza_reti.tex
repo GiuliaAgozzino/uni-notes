@@ -740,5 +740,60 @@ La \textbf{cache} è una memoria ad accesso molto rapido che la CPU utilizza per
 
 La differenza di tempo tra un accesso in cache (\textit{cache hit}) e un accesso in RAM (\textit{cache miss}) è alla base del \textbf{side channel} utilizzato da Meltdown e Spectre: misurando il tempo di accesso a specifiche locazioni di memoria, un attaccante può dedurre quali indirizzi sono stati caricati in cache durante l'esecuzione speculativa, rivelando così informazioni riservate.
 
+
+\subsection*{Side Channel Attack}
+
+Un \textbf{attacco side channel} non prende di mira direttamente un programma o il suo codice sorgente. Piuttosto, tenta di raccogliere informazioni o influenzare l'esecuzione di un programma \textbf{misurando o sfruttando gli effetti indiretti} del sistema o del suo hardware.
+
+In altre parole, un attacco side channel viola la crittografia sfruttando informazioni \textbf{trapelate involontariamente} dal sistema durante la sua normale esecuzione. Le principali tipologie sono:
+
+\begin{itemize}
+    \item \textbf{Attacco a tempo} (\textit{Timing Attack}): analizza il tempo impiegato da un sistema per eseguire algoritmi crittografici.
+    \item \textbf{Attacco elettromagnetico} (\textit{EM Attack}): misura e analizza la radiazione elettromagnetica emessa da un dispositivo durante l'elaborazione.
+    \item \textbf{Simple Power Analysis (SPA)}: osserva direttamente le variazioni di potenza ed elettromagnetiche di un sistema crittografico durante le operazioni.
+    \item \textbf{Differential Power Analysis (DPA)}: ottiene e analizza misurazioni statistiche dettagliate su più operazioni per ricavare chiavi crittografiche.
+    \item \textbf{Attacco a template} (\textit{Template Attack}): recupera chiavi crittografiche sfruttando un dispositivo ``modello'' identico e confrontando i dati dei canali laterali raccolti.
+\end{itemize}
+
+Nel contesto di Meltdown e Spectre, gli attacchi side channel sono resi possibili dalla \textbf{microarchitettura della CPU} e si basano sulle informazioni ottenute dall'implementazione fisica del sistema:
+
+\begin{itemize}
+    \item \textbf{Cache}: monitora la velocità con cui vengono effettuati gli accessi ai dati in cache.
+    \item \textbf{Timing}: monitora il tempo impiegato dalla macchina per eseguire vari calcoli.
+    \item \textbf{Power monitoring}: monitora il consumo energetico di varie computazioni.
+\end{itemize}
+
+\subsection{Sfruttare la Cache: Flush+Reload e Evict+Reload}
+
+Le due tecniche principali per sfruttare la cache come side channel sono:
+
+\subsubsection{Flush+Reload}
+\begin{enumerate}
+    \item \textbf{Flush}: svuota dalla cache ogni accesso alla memoria per i dati sotto controllo dell'attaccante, tramite l'istruzione \texttt{clflush}.
+    \item \textbf{Esecuzione}: lascia eseguire il programma vittima (o il codice malevolo), che accede alla memoria usando un valore segreto come indice.
+    \item \textbf{Reload}: tenta di ricaricare gli elementi dalla memoria controllata e misura il tempo di accesso. Un accesso \textit{rapido} indica che il dato era in cache (la vittima lo ha caricato), rivelando così il valore segreto.
+\end{enumerate}
+
+\subsubsection{Evict+Reload}
+\begin{enumerate}
+    \item \textbf{Evict}: elimina dalla cache i dati controllati dall'attaccante caricando altri dati (anche casuali). A causa delle dimensioni limitate della cache, la linea di cache specifica viene espulsa.
+    \item \textbf{Esecuzione}: lascia eseguire il programma vittima, che accede alla memoria usando il segreto come indice.
+    \item \textbf{Reload}: ricarica i dati e misura il tempo di accesso per dedurre quali indirizzi erano stati caricati in cache dalla vittima.
+\end{enumerate}
+
+La differenza principale rispetto a Flush+Reload è che Evict+Reload \textbf{non richiede l'istruzione privilegiata \texttt{clflush}}: l'espulsione dalla cache avviene indirettamente caricando altri dati.
+
+\subsection{Controllo dei Privilegi e Vulnerabilità}
+
+Le moderne CPU impongono un \textbf{controllo dei privilegi} ogni volta che un programma tenta di accedere alla memoria del kernel. Tuttavia, a causa dell'esecuzione speculativa, questo controllo può avvenire \textbf{troppo tardi}:
+
+\begin{itemize}
+    \item Il controllo dei privilegi non viene eseguito finché l'istruzione non viene \textbf{completata}: nel frattempo, i dati potrebbero essere già stati letti dalla memoria kernel e caricati in cache.
+    \item Le CPU sono consapevoli di questo comportamento: qualsiasi operazione eseguita senza i privilegi necessari viene \textbf{annullata} e viene sollevata un'eccezione (tipicamente \texttt{SIGSEGV}).
+    \item Tuttavia, anche dopo l'annullamento, la memoria a cui si è avuto accesso durante l'esecuzione speculativa \textbf{rimane archiviata nella cache}.
+\end{itemize}
+
+\noindent Questo è il punto critico sfruttato da Meltdown: sebbene il risultato dell'istruzione non autorizzata venga scartato, il suo \textbf{effetto collaterale sulla cache} persiste ed è misurabile tramite una tecnica Flush+Reload, permettendo all'attaccante di dedurre il contenuto della memoria kernel.
+
 \end{document}
 
