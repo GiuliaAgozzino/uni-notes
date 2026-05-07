@@ -541,6 +541,16 @@ $ cat /etc/passwd | grep testcow
 testcow:x:1001:1003:,,,:~/home/testcow:/bin/bash
 \end{lstlisting}
 
+\begin{itemize}
+    \item \textbf{Campo 1} --- \texttt{testcow}: username dell'utente.
+    \item \textbf{Campo 2} --- \texttt{x}: la password è salvata in forma hash nel file \texttt{/etc/shadow}.
+    \item \textbf{Campo 3} --- \texttt{1001}: \textbf{UID} (User ID), identificatore numerico dell'utente. L'utente \texttt{root} ha sempre UID = 0.
+    \item \textbf{Campo 4} --- \texttt{1003}: \textbf{GID} (Group ID), gruppo primario dell'utente.
+    \item \textbf{Campo 5} --- \texttt{,,,}: campo \textbf{GECOS}, informazioni opzionali come nome completo e numero di telefono, qui lasciate vuote.
+    \item \textbf{Campo 6} --- \texttt{/home/testcow}: percorso della \textbf{home directory}.
+    \item \textbf{Campo 7} --- \texttt{/bin/bash}: \textbf{shell} assegnata all'utente al momento del login.
+\end{itemize}
+
 Il \textbf{terzo campo} rappresenta lo \textbf{User ID (UID)}. L'utente \texttt{root} ha UID = 0. L'obiettivo dell'attacco è modificare il record di \texttt{testcow} sostituendo \texttt{1001} con \texttt{0000}, trasformando di fatto l'utente in root.
 
 \subsection*{Il codice dell'attacco}
@@ -588,7 +598,7 @@ int main(int argc, char *argv[])
     \item \textbf{Riga 3}: crea il thread che tenta ripetutamente di scrivere nella memoria tramite \texttt{/proc/self/mem}.
 \end{itemize}
 
-\subsubsection{I due thread}
+\subsubsection*{I due thread}
 
 \begin{lstlisting}[language=C, caption={writeThread e madviseThread}]
 void *writeThread(void *arg)
