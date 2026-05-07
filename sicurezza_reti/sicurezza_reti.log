@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.20)  7 MAY 2026 10:33
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.20)  7 MAY 2026 10:41
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -720,7 +720,7 @@ Overfull \hbox (93.00446pt too wide) in paragraph at lines 453--454
  []
 
 [10]
-Overfull \hbox (13.43419pt too wide) in paragraph at lines 466--467
+Overfull \hbox (13.43419pt too wide) in paragraph at lines 465--466
 \OT1/cmtt/m/n/10 write() \OT1/cmr/m/n/10 e \OT1/cmtt/m/n/10 lseek() \OT1/cmr/m/
 n/10 per ac-ce-de-re al-la pro-pria me-mo-ria. Il fi-le \OT1/cmtt/m/n/10 /proc/
 self/mem
@@ -754,7 +754,7 @@ s/giuli/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmti10.pfb
 ><C:/Users/giuli/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/c
 mtt10.pfb><C:/Users/giuli/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsf
 onts/cm/cmtt12.pfb>
-Output written on sicurezza_reti.pdf (11 pages, 448611 bytes).
+Output written on sicurezza_reti.pdf (11 pages, 448006 bytes).
 PDF statistics:
  123 PDF objects out of 1000 (max. 8388607)
  0 named destinations out of 1000 (max. 500000)

@@ -420,7 +420,7 @@ Se si dispone di un account utente non privilegiato (\texttt{seed}):
     \item Tuttavia, se il file viene mappato con \texttt{MAP\_PRIVATE}, il sistema operativo fa un'eccezione e \textbf{consente la scrittura}, ma tramite un percorso alternativo: invece di operazioni dirette in memoria (come \texttt{memcpy()}), si utilizza la chiamata di sistema \texttt{write()} attraverso il filesystem \texttt{/proc}.
 \end{itemize}
 
-\subsection{Il codice}
+\subsection*{Il codice}
 
 \begin{lstlisting}[language=C, caption={Mapping read-only di un file con CoW}]
 int main(int argc, char *argv[])
@@ -458,7 +458,6 @@ int main(int argc, char *argv[])
 }
 \end{lstlisting}
 
-\subsection{Spiegazione riga per riga}
 
 \begin{itemize}
     \item \textbf{Riga 1}: Mappa \texttt{/zzz} in memoria di sola lettura con \texttt{MAP\_PRIVATE}. Non è possibile scrivere direttamente in memoria, ma è possibile farlo indirettamente tramite il filesystem.
@@ -472,7 +471,7 @@ int main(int argc, char *argv[])
     \item \textbf{Riga 5}: \texttt{madvise()} con \texttt{MADV\_DONTNEED} segnala al kernel che la copia privata non è più necessaria. La tabella delle pagine viene reindirizzata alla \textbf{memoria mappata originale}, annullando le modifiche alla copia privata.
 \end{itemize}
 
-\subsection{Risultato dell'esecuzione}
+\subsection*{Risultato dell'esecuzione}
 
 \begin{lstlisting}[language=bash]
 $ gcc cow_map_readonly_file.c
