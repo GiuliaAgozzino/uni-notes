@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.20)  7 MAY 2026 10:23
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.20)  7 MAY 2026 10:33
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -685,48 +685,48 @@ File: lstlang1.sty 2025/11/14 1.11b listings language file
 File: lstlang1.sty 2025/11/14 1.11b listings language file
 )
 [9]
-Overfull \hbox (39.0039pt too wide) in paragraph at lines 438--439
+Overfull \hbox (39.0039pt too wide) in paragraph at lines 437--438
 [][][][][][][][][][][][][][][][][][][][][][][][][] 
  []
 
 
-Overfull \hbox (33.00385pt too wide) in paragraph at lines 439--441
+Overfull \hbox (33.00385pt too wide) in paragraph at lines 438--440
 [][][][][][][][][][][][][][][][][][][][][][][][][][][] 
  []
 
 
-Overfull \hbox (63.00415pt too wide) in paragraph at lines 441--442
+Overfull \hbox (63.00415pt too wide) in paragraph at lines 440--441
 [][][][][][][][][][][][][][][][][][][][][][][][][][][] 
  []
 
 
-Overfull \hbox (129.00482pt too wide) in paragraph at lines 444--445
+Overfull \hbox (129.00482pt too wide) in paragraph at lines 443--444
 [][][][][][][][][][][][][][][][][][][][][][][][][][][][] 
  []
 
 
-Overfull \hbox (63.00415pt too wide) in paragraph at lines 447--448
+Overfull \hbox (63.00415pt too wide) in paragraph at lines 446--447
 [][][][][][][][][][][][][][][][][][][][][][][][][][] 
  []
 
 
-Overfull \hbox (3.00354pt too wide) in paragraph at lines 450--451
+Overfull \hbox (3.00354pt too wide) in paragraph at lines 449--450
 [][][][][][][][][][][][][][][][][][][][] 
  []
 
-[10]
-Overfull \hbox (93.00446pt too wide) in paragraph at lines 454--455
+
+Overfull \hbox (93.00446pt too wide) in paragraph at lines 453--454
 [][][][][][][][][][][][][][][][][][][][][][][][][][][][][][] 
  []
 
-
-Overfull \hbox (13.43419pt too wide) in paragraph at lines 467--468
+[10]
+Overfull \hbox (13.43419pt too wide) in paragraph at lines 466--467
 \OT1/cmtt/m/n/10 write() \OT1/cmr/m/n/10 e \OT1/cmtt/m/n/10 lseek() \OT1/cmr/m/
 n/10 per ac-ce-de-re al-la pro-pria me-mo-ria. Il fi-le \OT1/cmtt/m/n/10 /proc/
 self/mem
  []
 
-[11] [12] (sicurezza_reti.aux)
+[11] (sicurezza_reti.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2025-12-24>
@@ -735,7 +735,7 @@ L3 programming layer <2025-12-24>
 Here is how much of TeX's memory you used:
  15611 strings out of 467871
  308014 string characters out of 5418376
- 917810 words of memory out of 5000000
+ 917651 words of memory out of 5000000
  44236 multiletter control sequences out of 15000+600000
  633711 words of font info for 60 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
@@ -754,9 +754,9 @@ s/giuli/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmti10.pfb
 ><C:/Users/giuli/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/c
 mtt10.pfb><C:/Users/giuli/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsf
 onts/cm/cmtt12.pfb>
-Output written on sicurezza_reti.pdf (12 pages, 449247 bytes).
+Output written on sicurezza_reti.pdf (11 pages, 448611 bytes).
 PDF statistics:
- 126 PDF objects out of 1000 (max. 8388607)
+ 123 PDF objects out of 1000 (max. 8388607)
  0 named destinations out of 1000 (max. 500000)
  53 words of extra memory for PDF output out of 10000 (max. 10000000)
 
