@@ -2,6 +2,10 @@
 \usepackage[utf8]{inputenc}
 \usepackage[italian]{babel}
 \usepackage{graphicx}
+\usepackage{listings}
+\usepackage{float}
+\usepackage{tikz}
+\usepackage{circledsteps}
 \title{Sicurezza nelle reti}
 \author{Giulia}
 \date{\today}
@@ -265,5 +269,102 @@ e attaccato nell'ottobre 2016. Interessa tutti i sistemi operativi basati su Lin
     \item Ottieni i privilegi di root sfruttando la vulnerabilità.
 \end{itemize}
 
+\subsection*{Mappatura della memoria con \texttt{mmap()}}
 
+\texttt{mmap()} è una chiamata di sistema che consente di mappare file o dispositivi direttamente in memoria. Il tipo di mappatura predefinito è la \textbf{mappatura supportata da file} (\textit{file-backed mapping}): mappa un'area della memoria virtuale di un processo su un file, in modo che la lettura dall'area mappata corrisponda alla lettura del file.
+
+\subsection{Struttura del codice}
+
+Di seguito un esempio completo di utilizzo di \texttt{mmap()}:
+
+\begin{lstlisting}[language=C, caption={Esempio di memory mapping con mmap()}]
+int main()
+{
+    struct stat st;
+    char content[20];
+    char *new_content = "New Content";
+    void *map;
+
+    // (1) Apre il file in modalita' lettura-scrittura
+    int f = open("./zzz", O_RDWR);
+    fstat(f, &st);
+
+    // (2) Mappa l'intero file in memoria
+    map = mmap(NULL, st.st_size, PROT_READ | PROT_WRITE,
+               MAP_SHARED, f, 0);
+
+    // (3) Legge 10 byte dal file tramite la memoria mappata
+    memcpy((void*)content, map, 10);
+    printf("read: %s\n", content);
+
+    // (4) Scrive nel file tramite la memoria mappata
+    memcpy(map + 5, new_content, strlen(new_content));
+
+    // Pulizia
+    munmap(map, st.st_size);
+    close(f);
+    return 0;
+}
+\end{lstlisting}
+
+\subsection*{Argomenti di \texttt{mmap()}}
+
+La chiamata alla riga 2 ha la seguente firma:
+\begin{center}
+\texttt{void *mmap(void *addr, size\_t length, int prot, int flags, int fd, off\_t offset);}
+\end{center}
+
+\begin{enumerate}
+    \item \textbf{Indirizzo iniziale} (\texttt{addr}): indirizzo di partenza per la memoria mappata. Se \texttt{NULL}, il kernel sceglie automaticamente l'indirizzo.
+    \item \textbf{Dimensione} (\texttt{length}): dimensione in byte della regione di memoria da mappare.
+    \item \textbf{Protezione} (\texttt{prot}): specifica se la memoria è leggibile e/o scrivibile (\texttt{PROT\_READ}, \texttt{PROT\_WRITE}). Deve essere compatibile con la modalità di apertura del file alla riga 1.
+    \item \textbf{Flag} (\texttt{flags}): determina se le modifiche alla mappatura sono visibili ad altri processi che mappano la stessa regione e se le modifiche vengono propagate al file sottostante (\texttt{MAP\_SHARED} o \texttt{MAP\_PRIVATE}).
+    \item \textbf{File descriptor} (\texttt{fd}): il file che deve essere mappato in memoria.
+    \item \textbf{Offset} (\texttt{offset}): indica da quale posizione all'interno del file deve iniziare la mappatura.
+\end{enumerate}
+
+\subsection*{Accesso tramite \texttt{memcpy()}}
+
+Una volta creata la mappatura, è possibile accedere al file con semplici operazioni di lettura e scrittura tramite \texttt{memcpy()}:
+\begin{itemize}
+    \item Riga 3: legge 10 byte dal file tramite la memoria mappata.
+    \item Riga 4: scrive nel file tramite la memoria mappata, a partire dall'offset 5.
+\end{itemize}
+
+
+\subsubsection*{\texttt{MAP\_SHARED}}
+
+La memoria mappata si comporta come \textbf{memoria condivisa} tra i processi.
+
+\begin{itemize}
+    \item Quando più processi mappano lo stesso file, possono utilizzare indirizzi di memoria \emph{virtuale} diversi.
+    \item L'indirizzo di memoria \emph{fisica} in cui viene conservato il contenuto del file è però \textbf{lo stesso} per tutti i processi.
+    \item Le modifiche effettuate da un processo sono immediatamente visibili agli altri e vengono propagate al file su disco.
+\end{itemize}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.6\textwidth]{immagini/11.png}
+\end{figure}
+
+\subsubsection*{\texttt{MAP\_PRIVATE}}
+
+Il file viene mappato nella \textbf{memoria privata} del processo chiamante, con semantica \textit{copy-on-write}:
+
+\begin{itemize}
+    \item Le modifiche apportate alla memoria \textbf{non sono visibili} agli altri processi.
+    \item Inizialmente, la memoria virtuale del processo punta alla stessa memoria fisica della copia principale (nessuna copia immediata).
+    \item Quando il processo tenta di \textbf{scrivere} nella memoria mappata, il sistema operativo:
+        \begin{enumerate}
+            \item alloca un nuovo blocco di memoria fisica;
+            \item copia il contenuto dalla copia principale al nuovo blocco (\textit{copy-on-write});
+            \item redirige la memoria virtuale del processo verso il nuovo blocco fisico.
+        \end{enumerate}
+    \item Le modifiche \textbf{non vengono propagate} al file sottostante.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{immagini/12.png}
+\end{figure}
 \end{document}
