@@ -825,7 +825,7 @@ sulle 256 pagine del \texttt{probe\_array} si osserva esattamente un
 cache hit, sulla pagina che è stata acceduta durante l'esecuzione 
 fuori ordine.
 
-\begin{lstlisting}[language=C, caption={Schema concettuale del toy example}]
+\begin{lstlisting}[language=C]
 raise_exception();
 // the line below is never reached
 access(probe_array[data * 4096]);
@@ -837,10 +837,9 @@ speculativamente in anticipo. Quando il controllo dei privilegi fallisce
 e viene sollevata l'eccezione, il risultato viene annullato --- ma 
 \textbf{la riga di cache caricata persiste}.
 
-\subsection{Il codice assembly di Meltdown}
+\subsection*{Il codice assembly di Meltdown}
 
-\begin{lstlisting}[language={[x86masm]Assembler}, 
-                   caption={Codice assembly dell'attacco Meltdown}]
+\begin{lstlisting}[language={[x86masm]Assembler}]
 ; rcx = kernel address, rbx = probe array
 xor rax, rax       ; riga 2
 retry:             ; riga 3
