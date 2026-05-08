@@ -768,22 +768,41 @@ Nel contesto di Meltdown e Spectre, gli attacchi side channel sono resi possibil
 Le due tecniche principali per sfruttare la cache come side channel sono:
 
 \subsubsection*{Flush+Reload}
+
+Il principio si basa sulla differenza di tempo tra un accesso in cache 
+(\textit{cache hit}) e un accesso in RAM (\textit{cache miss}). L'attaccante predispone un array accessibile anche dalla vittima (es. tramite memoria condivisa). La vittima, durante la sua esecuzione, usa il valore segreto come indice e carica quella specifica riga di cache.
+
 \begin{enumerate}
-    \item \textbf{Flush}: svuota dalla cache ogni accesso alla memoria per i dati sotto controllo dell'attaccante, tramite l'istruzione \texttt{clflush}.
-    \item \textbf{Esecuzione}: lascia eseguire il programma vittima (o il codice malevolo), che accede alla memoria usando un valore segreto come indice.
-    \item \textbf{Reload}: tenta di ricaricare gli elementi dalla memoria controllata e misura il tempo di accesso. Un accesso \textit{rapido} indica che il dato era in cache (la vittima lo ha caricato), rivelando così il valore segreto.
+    \item \textbf{Flush}: l'attaccante svuota l'intero array
+    dalla cache tramite l'istruzione \texttt{clflush}. In questo modo nessun elemento dell'array è presente in cache.
+    
+    \item \textbf{Esecuzione}: la vittima esegue il proprio codice e accede, caricando in cache la riga corrispondente al valore segreto (il valore segreto è usato come indice).
+    
+    \item \textbf{Reload}: l'attaccante riaccede a ogni elemento dell'array e misura il tempo di accesso. L'unico elemento con un tempo di accesso rapido (cache hit) è quello caricato dalla vittima: il suo indice rivela il valore segreto.
 \end{enumerate}
 
-\subsubsection{Evict+Reload}
-\begin{enumerate}
-    \item \textbf{Evict}: elimina dalla cache i dati controllati dall'attaccante caricando altri dati (anche casuali). A causa delle dimensioni limitate della cache, la linea di cache specifica viene espulsa.
-    \item \textbf{Esecuzione}: lascia eseguire il programma vittima, che accede alla memoria usando il segreto come indice.
-    \item \textbf{Reload}: ricarica i dati e misura il tempo di accesso per dedurre quali indirizzi erano stati caricati in cache dalla vittima.
-\end{enumerate}
+\subsubsection*{Evict+Reload}
+
+Funziona con lo stesso principio di Flush+Reload, ma non utilizza 
+l'istruzione \texttt{clflush}. L'espulsione dalla cache avviene 
+\textbf{indirettamente}, sfruttando la dimensione limitata della cache.
+
+\begin{itemize}
+    \item \textbf{Evict}: l'attaccante carica in memoria una grande quantità di dati casuali. A causa delle dimensioni limitate della cache, i nuovi dati \textit{espellono} (\textit{evict}) le righe di cache dell'array, che torna in RAM.
+    
+    \item \textbf{Esecuzione}: la vittima esegue e accede, ricaricando in cache la riga corrispondente al segreto.
+    
+    \item \textbf{Reload}: l'attaccante riaccede a ogni elemento e misura i tempi. Come in Flush+Reload, l'elemento con accesso rapido rivela il valore segreto.
+\end{itemize}
+
+\noindent La differenza fondamentale tra le due tecniche è che 
+\textbf{Evict+Reload} non richiede l'istruzione privilegiata 
+\texttt{clflush}, rendendola applicabile in contesti più restrittivi 
+(es. linguaggi sandboxed come JavaScript).re quali indirizzi erano stati caricati in cache dalla vittima.
 
 La differenza principale rispetto a Flush+Reload è che Evict+Reload \textbf{non richiede l'istruzione privilegiata \texttt{clflush}}: l'espulsione dalla cache avviene indirettamente caricando altri dati.
 
-\subsection{Controllo dei Privilegi e Vulnerabilità}
+\subsection*{Controllo dei Privilegi e Vulnerabilità}
 
 Le moderne CPU impongono un \textbf{controllo dei privilegi} ogni volta che un programma tenta di accedere alla memoria del kernel. Tuttavia, a causa dell'esecuzione speculativa, questo controllo può avvenire \textbf{troppo tardi}:
 
