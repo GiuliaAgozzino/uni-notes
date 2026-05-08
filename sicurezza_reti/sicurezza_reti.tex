@@ -814,5 +814,126 @@ Le moderne CPU impongono un \textbf{controllo dei privilegi} ogni volta che un p
 
 \noindent Questo è il punto critico sfruttato da Meltdown: sebbene il risultato dell'istruzione non autorizzata venga scartato, il suo \textbf{effetto collaterale sulla cache} persiste ed è misurabile tramite una tecnica Flush+Reload, permettendo all'attaccante di dedurre il contenuto della memoria kernel.
 
+\section*{Meltdown}
+
+\subsection*{Toy Example: esecuzione fuori ordine e cache}
+
+Il principio alla base di Meltdown si basa su un'osservazione fondamentale:
+\textbf{anche se una locazione di memoria viene acceduta solo durante 
+l'esecuzione fuori ordine, il suo contenuto rimane in cache}. Iterando 
+sulle 256 pagine del \texttt{probe\_array} si osserva esattamente un 
+cache hit, sulla pagina che è stata acceduta durante l'esecuzione 
+fuori ordine.
+
+\begin{lstlisting}[language=C, caption={Schema concettuale del toy example}]
+raise_exception();
+// the line below is never reached
+access(probe_array[data * 4096]);
+\end{lstlisting}
+
+Sebbene la riga 3 non venga mai raggiunta in ordine di esecuzione normale 
+(perché \texttt{raise\_exception()} la precede), la CPU la esegue 
+speculativamente in anticipo. Quando il controllo dei privilegi fallisce 
+e viene sollevata l'eccezione, il risultato viene annullato --- ma 
+\textbf{la riga di cache caricata persiste}.
+
+\subsection{Il codice assembly di Meltdown}
+
+\begin{lstlisting}[language={[x86masm]Assembler}, 
+                   caption={Codice assembly dell'attacco Meltdown}]
+; rcx = kernel address, rbx = probe array
+xor rax, rax       ; riga 2
+retry:             ; riga 3
+mov al, byte [rcx] ; riga 4
+shl rax, 0xc       ; riga 5
+jz retry           ; riga 6
+mov rbx, qword [rbx + rax] ; riga 7
+\end{lstlisting}
+
+\subsection{Analisi riga per riga}
+
+\paragraph{Passo 1 --- Allocazione del probe array (prerequisito)}
+Prima dell'esecuzione del codice assembly, l'attaccante alloca un blocco 
+di memoria composto da \textbf{256 pagine} ($256 \times 4096$ byte), 
+referenziato dal registro \texttt{RBX}. Nessuna pagina è inizialmente 
+in cache, poiché non è mai stata acceduta.
+
+\paragraph{Riga 2 --- \texttt{xor rax, rax}}
+Azzera il registro \texttt{RAX} eseguendo uno XOR con se stesso 
+(qualunque valore XOR se stesso = 0). Serve per partire da uno 
+stato pulito prima di leggere il byte segreto.
+
+\paragraph{Riga 4 --- \texttt{mov al, byte [rcx]}}
+Carica il byte situato all'indirizzo kernel contenuto in \texttt{RCX} 
+nel registro \texttt{AL} (byte meno significativo di \texttt{RAX}). 
+Questo è il \textbf{punto critico}: si tratta di un accesso non 
+autorizzato alla memoria kernel. Il controllo dei privilegi viene 
+avviato, ma \textbf{la CPU esegue le istruzioni successive 
+speculativamente} prima che il controllo termini.
+
+\paragraph{Riga 5 --- \texttt{shl rax, 0xc}}
+Esegue uno shift a sinistra di \texttt{0xc} = 12 bit sul contenuto 
+di \texttt{RAX}:
+\[
+    \texttt{RAX} \leftarrow \texttt{RAX} \times 2^{12} 
+    = \texttt{RAX} \times 4096
+\]
+Questo converte il valore del byte segreto (0--255) nell'offset 
+corrispondente nel probe array, garantendo che ogni possibile valore 
+cada su una \textbf{pagina separata} (evitando interferenze tra 
+cache line adiacenti, come discusso in precedenza).
+
+\paragraph{Riga 6 --- \texttt{jz retry}}
+Se \texttt{RAX} è ancora zero (il byte letto era 0 oppure la lettura 
+non ha ancora prodotto un valore utile), si torna all'etichetta 
+\texttt{retry} e si riprova. Il ciclo continua finché \texttt{AL} 
+non contiene un valore diverso da zero.
+
+\paragraph{Riga 7 --- \texttt{mov rbx, qword [rbx + rax]}}
+Accede al probe array all'indice \texttt{RAX} (cioè 
+\texttt{probe\_array[secret * 4096]}), caricando in cache la pagina 
+corrispondente al valore del byte segreto. Questa istruzione viene 
+eseguita \textbf{fuori ordine}, prima che il controllo dei privilegi 
+della riga 4 sia completato.
+
+\subsection{La race condition e l'effetto sulla cache}
+
+L'attacco sfrutta una race condition tra:
+\begin{itemize}
+    \item il \textbf{controllo dei privilegi} avviato dalla riga 4 
+    (lettura dalla memoria kernel);
+    \item l'\textbf{esecuzione speculativa} delle righe 5 e 7.
+\end{itemize}
+
+Se il controllo dei privilegi termina \textit{dopo} che la riga 7 
+è già stata eseguita speculativamente:
+\begin{enumerate}
+    \item Il controllo fallisce → viene sollevata un'eccezione 
+    (\texttt{SIGSEGV}) e i risultati speculativi vengono annullati.
+    \item Tuttavia, \textbf{la pagina del probe array corrispondente 
+    al byte segreto rimane in cache}.
+\end{enumerate}
+
+Ad esempio: se il byte all'indirizzo kernel è \texttt{21}, la CPU 
+ha eseguito speculativamente \texttt{probe\_array[21 * 4096]}, 
+caricando la \textbf{21\textsuperscript{a} pagina} in cache.
+
+\subsection{Recupero del valore segreto}
+
+L'attaccante recupera il segreto nel seguente modo:
+\begin{enumerate}
+    \item \textbf{Intercetta l'eccezione} generata dal controllo dei 
+    privilegi (tramite un signal handler o meccanismo simile).
+    \item \textbf{Itera su tutte le 256 pagine} del probe array.
+    \item \textbf{Misura il tempo di accesso} a ciascuna pagina 
+    (tecnica Flush+Reload).
+    \item La pagina con tempo di accesso \textbf{notevolmente più 
+    basso} (cache hit) è quella caricata durante l'esecuzione 
+    speculativa: il suo indice corrisponde al valore del byte segreto.
+\end{enumerate}
+
+Nell'esempio: le pagine 0--20 risultano lente da leggere (cache miss, 
+$\sim$100ns), mentre la pagina 21 risulta molto più veloce (cache hit, 
+$\sim$5ns) $\Rightarrow$ il valore segreto è \textbf{21}.
 \end{document}
 
