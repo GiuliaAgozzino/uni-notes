@@ -849,7 +849,7 @@ jz retry           ; riga 6
 mov rbx, qword [rbx + rax] ; riga 7
 \end{lstlisting}
 
-\subsection{Analisi riga per riga}
+\subsection*{Analisi riga per riga}
 
 \paragraph{Passo 1 --- Allocazione del probe array (prerequisito)}
 Prima dell'esecuzione del codice assembly, l'attaccante alloca un blocco 
@@ -895,7 +895,7 @@ corrispondente al valore del byte segreto. Questa istruzione viene
 eseguita \textbf{fuori ordine}, prima che il controllo dei privilegi 
 della riga 4 sia completato.
 
-\subsection{La race condition e l'effetto sulla cache}
+\subsection*{La race condition e l'effetto sulla cache}
 
 L'attacco sfrutta una race condition tra:
 \begin{itemize}
@@ -917,7 +917,7 @@ Ad esempio: se il byte all'indirizzo kernel è \texttt{21}, la CPU
 ha eseguito speculativamente \texttt{probe\_array[21 * 4096]}, 
 caricando la \textbf{21\textsuperscript{a} pagina} in cache.
 
-\subsection{Recupero del valore segreto}
+\subsection*{Recupero del valore segreto}
 
 L'attaccante recupera il segreto nel seguente modo:
 \begin{enumerate}
