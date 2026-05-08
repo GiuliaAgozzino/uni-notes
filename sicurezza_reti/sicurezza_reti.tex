@@ -7,10 +7,10 @@
 \usepackage{tikz}
 \usepackage{circledsteps}
 \usepackage{enumitem}
+\usepackage[top=2cm, bottom=2cm, left=2cm, right=2cm]{geometry}
 \title{Sicurezza nelle reti}
 \author{Giulia}
 \date{\today}
-
 \begin{document}
 \maketitle
 
@@ -763,11 +763,11 @@ Nel contesto di Meltdown e Spectre, gli attacchi side channel sono resi possibil
     \item \textbf{Power monitoring}: monitora il consumo energetico di varie computazioni.
 \end{itemize}
 
-\subsection{Sfruttare la Cache: Flush+Reload e Evict+Reload}
+\subsection*{Sfruttare la Cache: Flush+Reload e Evict+Reload}
 
 Le due tecniche principali per sfruttare la cache come side channel sono:
 
-\subsubsection{Flush+Reload}
+\subsubsection*{Flush+Reload}
 \begin{enumerate}
     \item \textbf{Flush}: svuota dalla cache ogni accesso alla memoria per i dati sotto controllo dell'attaccante, tramite l'istruzione \texttt{clflush}.
     \item \textbf{Esecuzione}: lascia eseguire il programma vittima (o il codice malevolo), che accede alla memoria usando un valore segreto come indice.
