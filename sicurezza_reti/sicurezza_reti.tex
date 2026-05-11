@@ -933,5 +933,201 @@ L'attaccante recupera il segreto nel seguente modo:
 Nell'esempio: le pagine 0--20 risultano lente da leggere (cache miss, 
 $\sim$100ns), mentre la pagina 21 risulta molto più veloce (cache hit, 
 $\sim$5ns) $\Rightarrow$ il valore segreto è \textbf{21}.
-\end{document}
 
+
+\section*{Spectre Attack}
+
+\subsection*{Variant 1 Conditional Branch Misprediction}
+
+\subsubsection*{Il codice vulnerabile}
+
+\begin{lstlisting}[language=C]
+if (x < array1_size)
+    y = array2[array1[x] * 4096];
+\end{lstlisting}
+
+Questo codice appare perfettamente corretto: accede ad \texttt{array1[x]} 
+solo se \texttt{x} è entro i limiti dell'array. Tuttavia, è vulnerabile 
+a Spectre tramite il meccanismo di \textbf{branch prediction}.
+
+\subsubsection*{Come funziona il Branch Predictor}
+
+Le moderne CPU non aspettano di valutare la condizione di un \texttt{if} 
+prima di eseguire il corpo: lo \textbf{predicono} basandosi sulla storia 
+degli esecuzioni precedenti. Se il ramo condizionale è stato vero molte 
+volte di fila, la CPU assume che sarà vero anche la prossima volta ed 
+esegue speculativamente il corpo \textit{prima ancora di verificare la 
+condizione}.
+
+\subsubsection*{Struttura dell'attacco}
+
+Sia \texttt{secret} l'indirizzo di un byte segreto (es. una password) 
+in memoria. L'attaccante definisce:
+\[
+    x = \texttt{secret} - \texttt{array1\_base}
+\]
+In questo modo, \texttt{array1[x]} punta esattamente al valore segreto.
+Ovviamente, \texttt{x} è fuori dai limiti di \texttt{array1}, quindi 
+l'accesso non dovrebbe essere permesso.
+
+L'attacco si svolge in tre fasi:
+
+\begin{enumerate}
+    \item \textbf{Addestramento del branch predictor}: l'attaccante 
+    esegue il ciclo molte volte con valori di \texttt{x} \textit{validi} 
+    (cioè $x < \texttt{array1\_size}$). Il branch predictor impara che 
+    la condizione è quasi sempre vera e inizia a predire 
+    \texttt{true} automaticamente.
+
+    \item \textbf{Esecuzione speculativa con valore malevolo}: 
+    l'attaccante passa il valore \texttt{x = secret - array1\_base}. 
+    Il branch predictor, ingannato dall'addestramento, predice che la 
+    condizione sarà vera ed esegue speculativamente il corpo del ciclo:
+    \begin{itemize}
+        \item Legge \texttt{array1[x]}, ottenendo il valore segreto.
+        \item Usa il segreto come indice: 
+        \texttt{array2[secret\_value * 4096]}, caricando in cache 
+        la pagina corrispondente.
+    \end{itemize}
+    Quando la CPU verifica che $x \geq \texttt{array1\_size}$, 
+    annulla i risultati speculativi --- ma \textbf{la pagina di 
+    \texttt{array2} rimane in cache}.
+
+    \item \textbf{Recupero del segreto via side channel}: l'attaccante 
+    itera su tutte le 256 pagine di \texttt{array2} e misura il tempo 
+    di accesso (Flush+Reload). La pagina con accesso più rapido 
+    (cache hit) rivela il valore del byte segreto.
+\end{enumerate}
+
+\noindent\textbf{Differenza chiave rispetto a Meltdown:} Spectre non 
+accede direttamente alla memoria kernel; inganna un programma 
+\textit{legittimo} a fare l'accesso al posto suo, sfruttando 
+l'esecuzione speculativa del suo stesso codice.
+
+\subsection{Variant 2 Branch Target Injection (Poisoning Indirect Branches)}
+
+\subsubsection*{Indirect Branch}
+
+Un \textbf{indirect branch} è un salto a un indirizzo di memoria 
+contenuto in un registro o in memoria, anziché a un indirizzo fisso 
+nel codice. Ad esempio:
+
+\begin{lstlisting}[language={[x86masm]Assembler}]
+jmp [eax]   ; salta all'indirizzo contenuto in EAX
+\end{lstlisting}
+
+Questi salti sono tipici delle chiamate a puntatori a funzione 
+(\textit{function pointers}), delle vtable in C++, e dei dispatch 
+dinamici in generale.
+
+\subsubsection*{Branch Target Buffer (BTB)}
+
+Il \textbf{Branch Target Buffer (BTB)} è una struttura hardware 
+della CPU che mantiene una mappatura:
+\[
+    \texttt{indirizzo istruzione di salto} 
+    \;\longrightarrow\; 
+    \texttt{indirizzo di destinazione previsto}
+\]
+La CPU usa il BTB per prevedere la destinazione di un salto indiretto 
+\textit{prima ancora di decodificare l'istruzione}, consentendo 
+l'esecuzione speculativa del codice a quella destinazione.
+
+Il problema è che il BTB è \textbf{condiviso tra processi}: un 
+processo attaccante può \textit{addestrare} il BTB per far sì che 
+la CPU predica erroneamente la destinazione di un salto indiretto 
+nel processo vittima.
+
+\subsubsection*{Struttura dell'attacco}
+
+\begin{enumerate}
+    \item \textbf{Identificazione di uno Spectre gadget}: l'attaccante 
+    individua nel codice della vittima (o del kernel) un frammento di 
+    codice --- detto \textbf{Spectre gadget} --- la cui esecuzione 
+    speculativa trasferisce informazioni sensibili in un canale nascosto 
+    (es. accede al probe array con un valore segreto come indice).
+
+    \item \textbf{Poisoning del BTB}: l'attaccante esegue nel 
+    proprio processo un salto indiretto ripetutamente verso 
+    l'indirizzo virtuale del gadget. Il BTB viene così addestrato 
+    (\textit{poisoned}) ad associare l'istruzione di salto indiretto 
+    della vittima alla destinazione del gadget.
+
+    \item \textbf{Esecuzione speculativa del gadget}: quando il 
+    processo vittima esegue il proprio salto indiretto, la CPU 
+    consulta il BTB (corrotto) e speculativamente esegue il gadget, 
+    caricando in cache il valore segreto.
+
+    \item \textbf{Recupero via side channel}: come in Variant 1, 
+    l'attaccante usa Flush+Reload per dedurre il valore segreto 
+    dalla cache.
+\end{enumerate}
+
+\noindent\textbf{Caratteristica distintiva di Variant 2:} non dipende 
+da vulnerabilità nel codice della vittima. Qualsiasi programma con 
+un salto indiretto può essere bersaglio, indipendentemente da quanto 
+sia scritto correttamente.
+
+\subsection*{Confronto tra Meltdown e Spectre}
+
+\begin{center}
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Caratteristica} & \textbf{Meltdown} & \textbf{Spectre} \\
+\hline
+Meccanismo & Out-of-order execution & Branch misprediction \\
+Bersaglio & Memoria kernel & Memoria di altri processi \\
+Richiede codice vulnerabile & No & Variant 1: sì / Variant 2: no \\
+Difficoltà di sfruttamento & Più semplice & Più complesso \\
+Difficoltà di mitigazione & Più semplice & Più difficile \\
+\hline
+\end{tabular}
+\end{center}
+
+\subsection*{Mitigazioni}
+
+La soluzione ideale a queste vulnerabilità è \textbf{hardware}: 
+riprogettare la CPU per eliminare alla radice il problema. Tuttavia, 
+questo richiede tempi lunghi, costi elevati e non è applicabile 
+ai miliardi di dispositivi già in uso.
+
+Sono state quindi sviluppate \textbf{patch software} come soluzione 
+temporanea:
+
+\begin{itemize}
+    \item \textbf{KPTI} (\textit{Kernel Page-Table Isolation}), 
+    precedentemente nota come \textbf{KAISER}, adottata su Linux:
+    \begin{itemize}
+        \item Separa completamente le tabelle delle pagine del kernel 
+        da quelle dello spazio utente.
+        \item Quando un processo utente è in esecuzione, la memoria 
+        kernel è quasi completamente \textbf{rimossa} dal suo spazio 
+        di indirizzamento virtuale, eliminando il canale laterale 
+        sfruttato da Meltdown.
+        \item \textbf{Svantaggio}: introduce una penalizzazione delle 
+        prestazioni, poiché ogni transizione user/kernel richiede 
+        un cambio di tabella delle pagine (TLB flush).
+    \end{itemize}
+
+    \item \textbf{Retpoline} (per Spectre Variant 2): tecnica 
+    compilativa che sostituisce i salti indiretti con costrutti 
+    che non vengono predetti dal BTB, neutralizzando il 
+    branch target injection.
+
+    \item \textbf{Serializzazione dei rami} (per Spectre Variant 1): 
+    inserimento di istruzioni di barriera (\texttt{lfence}) dopo i 
+    controlli sui limiti degli array, per impedire l'esecuzione 
+    speculativa del corpo del ramo prima che la condizione sia 
+    verificata.
+\end{itemize}
+
+
+
+
+
+
+
+
+
+
+\end{document}
