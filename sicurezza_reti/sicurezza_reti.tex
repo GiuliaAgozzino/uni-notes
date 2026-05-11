@@ -833,7 +833,7 @@ access(probe_array[data * 4096]);
 Sebbene la riga 3 non venga mai raggiunta in ordine di esecuzione normale 
 (perché \texttt{raise\_exception()} la precede), la CPU la esegue 
 speculativamente in anticipo. Quando il controllo dei privilegi fallisce 
-e viene sollevata l'eccezione, il risultato viene annullato --- ma 
+e viene sollevata l'eccezione, il risultato viene annullato ma 
 \textbf{la riga di cache caricata persiste}.
 
 \subsection*{Il codice assembly di Meltdown}
@@ -850,18 +850,18 @@ mov rbx, qword [rbx + rax] ; riga 7
 
 \subsection*{Analisi riga per riga}
 
-\paragraph{Passo 1 --- Allocazione del probe array (prerequisito)}
+\paragraph{Passo 1 Allocazione del probe array (prerequisito)}
 Prima dell'esecuzione del codice assembly, l'attaccante alloca un blocco 
 di memoria composto da \textbf{256 pagine} ($256 \times 4096$ byte), 
 referenziato dal registro \texttt{RBX}. Nessuna pagina è inizialmente 
 in cache, poiché non è mai stata acceduta.
 
-\paragraph{Riga 2 --- \texttt{xor rax, rax}}
+\paragraph{Riga 2 \texttt{xor rax, rax}}
 Azzera il registro \texttt{RAX} eseguendo uno XOR con se stesso 
 (qualunque valore XOR se stesso = 0). Serve per partire da uno 
 stato pulito prima di leggere il byte segreto.
 
-\paragraph{Riga 4 --- \texttt{mov al, byte [rcx]}}
+\paragraph{Riga 4 \texttt{mov al, byte [rcx]}}
 Carica il byte situato all'indirizzo kernel contenuto in \texttt{RCX} 
 nel registro \texttt{AL} (byte meno significativo di \texttt{RAX}). 
 Questo è il \textbf{punto critico}: si tratta di un accesso non 
@@ -869,7 +869,7 @@ autorizzato alla memoria kernel. Il controllo dei privilegi viene
 avviato, ma \textbf{la CPU esegue le istruzioni successive 
 speculativamente} prima che il controllo termini.
 
-\paragraph{Riga 5 --- \texttt{shl rax, 0xc}}
+\paragraph{Riga 5 \texttt{shl rax, 0xc}}
 Esegue uno shift a sinistra di \texttt{0xc} = 12 bit sul contenuto 
 di \texttt{RAX}:
 \[
