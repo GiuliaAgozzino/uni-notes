@@ -1240,7 +1240,149 @@ Il file utilizza la sintassi \textbf{YAML} e definisce:
 \end{itemize}
 
 
+\section{Format String}
 
+\subsection{Introduzione}
+
+Le \textit{format string} sono le stringhe di controllo passate alle funzioni della famiglia \texttt{printf()}, che contengono il template di output per quelle funzioni. Queste funzioni sono vulnerabili ogni volta che un attaccante riesce a controllare la format string stessa.
+
+Queste vulnerabilità possono essere estremamente potenti nelle mani di un attaccante esperto. Nel caso peggiore, l'attaccante è in grado di eseguire \textbf{letture arbitrarie dalla memoria} e persino \textbf{scritture arbitrarie in memoria}: ovvero, può leggere parole da indirizzi di memoria scelti da lui stesso, oppure sovrascrivere locazioni di memoria a sua scelta con valori a sua scelta.
+
+È evidente come questi poteri permettano a un attaccante di aggirare completamente le protezioni come i \textit{stack canary}, ad esempio leggendo il canary dalla memoria, sovrascrivendo il canary globale, oppure sovrascrivendo un indirizzo di ritorno senza toccare il canary.
+
+\subsection{Il bug della format string}
+
+Il vettore di attacco deriva dal modo in cui le \textit{funzioni variadiche} sono implementate in C. Le funzioni variadiche sono dichiarate terminando la lista dei loro argomenti con \texttt{"..."}. Ad esempio, \texttt{printf()} può essere dichiarata come:
+
+\begin{verbatim}
+int printf(const char *fmt, ...);
+\end{verbatim}
+
+Il compilatore C gestisce queste funzioni semplicemente non controllando il numero e i tipi degli argomenti passati nella posizione \texttt{"..."}. Tutti gli argomenti presenti nel sito di chiamata vengono collocati nei registri o sullo stack. Se la funzione chiamata necessita di uno di questi argomenti, legge la posizione attesa per quell'argomento — senza alcun modo di sapere se l'argomento sia stato effettivamente passato o se il tipo sia corretto: leggerà semplicemente qualunque cosa si trovi in quella posizione e la interpreterà come un valore del tipo atteso.
+
+Nella famiglia \texttt{printf()}, la convenzione è che ogni specificatore di formato consuma un argomento aggiuntivo. Ad esempio:
+
+\begin{verbatim}
+printf("a is %d and b is %d\n", a, b);
+\end{verbatim}
+
+Il primo \texttt{\%d} leggerà il primo argomento (\texttt{a}) dopo la format string e stamperà il suo valore intero; il secondo \texttt{\%d} leggerà l'argomento successivo (\texttt{b}). Su sistemi a 32 bit il primo argomento si trova sullo stack appena sotto il puntatore alla format string; su sistemi a 64 bit i primi 6 argomenti (incluso il puntatore alla format string) sono nei registri, e gli eventuali argomenti aggiuntivi vengono pushati sullo stack.
+
+Consideriamo ora una chiamata come questa:
+
+\begin{verbatim}
+printf("a is %d and b is %d\n", a);
+\end{verbatim}
+
+dove ci sono due \texttt{\%d} ma un solo argomento aggiuntivo. Questo codice \textbf{compila senza errori}. A runtime, \texttt{printf()} stamperà correttamente il valore di \texttt{a}, ma poi stamperà anche qualunque cosa si trovi sotto \texttt{a} sullo stack (32 bit), oppure il contenuto corrente del registro \texttt{rdx} (64 bit).
+
+Infine, consideriamo:
+
+\begin{verbatim}
+printf(buf);
+\end{verbatim}
+
+dove il contenuto di \texttt{buf} è controllato dall'attaccante. Il programmatore voleva semplicemente stampare una stringa, ma \texttt{printf()} interpreta ogni carattere \texttt{\%} dentro \texttt{buf} come uno specificatore di formato. Ciascuno di questi specificatori richiede un argomento corrispondente, e \texttt{printf()} leggerà i registri o le locazioni di memoria dove quell'argomento avrebbe dovuto trovarsi — il tutto sotto il controllo dell'attaccante. Il modo corretto per stampare una stringa è \texttt{puts(buf)} oppure \texttt{printf("\%s", buf)}.
+
+\subsection{Sfruttare le vulnerabilità di format string}
+
+È utile pensare a \texttt{printf()} come a una \textit{macchina virtuale} con il proprio linguaggio di programmazione. La format string è il \textit{programma}, e le istruzioni sono i caratteri normali e gli specificatori di formato. La macchina \texttt{printf()} ha il proprio \textit{instruction pointer} che punta al prossimo carattere da ``eseguire'' e si muove solo in avanti, senza salti né cicli.
+
+Lo stato della macchina comprende:
+\begin{enumerate}
+    \item un \textbf{argument pointer}, che punta all'argomento da usare per il prossimo specificatore di formato;
+    \item un \textbf{output counter}, che conta il numero di caratteri già scritti in output.
+\end{enumerate}
+
+Ad esempio, \texttt{\%d} legge l'argomento puntato dall'argument pointer, sposta quest'ultimo all'argomento successivo, interpreta l'argomento come intero, lo stampa e incrementa l'output counter. Sorprendentemente, la macchina \texttt{printf()} può anche \textbf{scrivere in memoria} tramite lo specificatore \texttt{\%n} (poco noto): l'argomento di \texttt{\%n} deve essere un puntatore a un intero, e \texttt{printf()} vi scriverà il valore corrente dell'output counter. Per esempio:
+
+\begin{verbatim}
+printf("AAAAA%nBBB%nCCCC", &cnt1, &cnt2);
+\end{verbatim}
+
+assegnerà \texttt{5} a \texttt{cnt1} e \texttt{8} a \texttt{cnt2}.
+
+\subsubsection{Lettura dallo stack}
+
+Il modo più semplice di sfruttare una format string vulnerability è far trapelare informazioni dallo stack del processo vittima. Su sistemi a 32 bit, una sequenza di specificatori \texttt{\%x} causerà la stampa di valori consecutivi dallo stack. Su sistemi a 64 bit, i primi 5 \texttt{\%lx} stamperanno il contenuto dei registri \texttt{rsi}, \texttt{rdx}, \texttt{rcx}, \texttt{r8} e \texttt{r9}; i successivi inizieranno a stampare dati dallo stack. Studiando il binario, o semplicemente osservando l'output, l'attaccante può individuare quale di questi valori corrisponde allo stack canary. Si noti che su sistemi a 64 bit è necessario usare \texttt{\%lx} (non \texttt{\%x}), poiché \texttt{\%x} legge solo 4 byte in entrambi i sistemi.
+
+La principale difficoltà per l'attaccante è la limitazione di spazio nel buffer: l'argument pointer avanza di almeno una \textit{stack line} per ogni specificatore, e con un buffer di dimensione $s$ si possono scorrere al massimo $\lfloor s/2 \rfloor$ righe dello stack, il che potrebbe non essere sufficiente a raggiungere la posizione del canary.
+
+\subsubsection{Accesso casuale agli argomenti}
+
+La format string supporta anche l'accesso diretto agli argomenti tramite la sintassi \texttt{\%n\$}, che seleziona l'$n$-esimo argomento direttamente. Per esempio:
+
+\begin{verbatim}
+printf("%4$d %1$d %3$d %2$d\n", 10, 20, 30, 40);
+\end{verbatim}
+
+stamperà \texttt{40 10 30 20}.
+
+In alcuni casi questa sintassi permette di superare le limitazioni di spazio: se si sa che il canary si trova $n$ stack-lines sotto il puntatore alla format string, \texttt{\%n\$x} (32 bit) o \texttt{\%(n+5)\$lx} (64 bit) lo stamperanno direttamente.
+
+Tuttavia, secondo lo standard, l'accesso casuale e quello sequenziale agli argomenti sono \textbf{mutualmente esclusivi}, e non ci possono essere ``gap'' nella lista degli argomenti referenziati. Questo perché, per saltare all'$n$-esimo argomento, \texttt{printf()} deve conoscere quante stack lines occupano tutti gli argomenti precedenti (il che dipende dal tipo di ciascuno). Se la regola del no-gap è rispettata, l'accesso casuale non può essere usato per superare le limitazioni di spazio nel buffer.
+
+\subsubsection{Lettura arbitraria dalla memoria}
+
+La limitazione precedente può essere superata se l'attaccante controlla sia la format string che almeno parte dei suoi argomenti, ad esempio quando la format string è essa stessa sullo stack e può essere raggiunta dall'argument pointer.
+
+Sia $o$ il numero di stack-lines tra il primo argomento di \texttt{printf()} (incluso) e la prima line della copia della format string (esclusa). Allora:
+\begin{itemize}
+    \item su sistemi a 32 bit, gli argomenti da 1 a $o$ leggono le stack-lines intermedie, mentre l'argomento $o+1$ legge la prima line della format string;
+    \item su sistemi a 64 bit, gli argomenti 1--5 leggono i registri, gli argomenti da 6 a $o+5$ leggono le stack-lines, e l'argomento $o+6$ legge la prima line della format string.
+\end{itemize}
+
+L'istruzione chiave è \texttt{\%s}: normalmente stampa una stringa, ma nella nostra ``macchina printf'' si comporta come un'istruzione di \textbf{lettura arbitraria dalla memoria}: stampa il contenuto della memoria a partire dall'indirizzo specificato come argomento, fino al primo byte nullo.
+
+Ad esempio, con $o = 2$ su un sistema a 32 bit, per leggere dalla locazione \texttt{0x11223344} si può preparare la stringa:
+\begin{verbatim}
+"\x44\x33\x22\x11%c%c%s"
+\end{verbatim}
+I due \texttt{\%c} servono a spostare l'argument pointer fino all'inizio della format string stessa, in modo che \texttt{\%s} usi \texttt{0x11223344} come indirizzo. Per evitare che \texttt{printf()} continui a leggere fino a indirizzi non accessibili, si può usare \texttt{\%.ms} che legge al massimo $m$ byte.
+
+I byte nulli nell'indirizzo possono essere problematici (il byte nullo termina la format string), ma possono essere aggirati posizionando l'indirizzo \textit{dopo} gli specificatori. Con accesso casuale disponibile, basta usare \texttt{\%3\$s\textbackslash x11\textbackslash x22\textbackslash x00\textbackslash x44}.
+
+\subsubsection{Scrittura arbitraria in memoria}
+
+Il potere massimo è la capacità di sovrascrivere parole arbitrarie di memoria con valori arbitrari, combinando \texttt{\%n} con il controllo preciso dell'output counter.
+
+L'output counter si controlla facilmente: \texttt{\%mc} incrementa sempre il counter esattamente di $m$. Per scrivere valori grandi (come indirizzi di funzione) senza generare un numero impraticabile di byte in output, si usano:
+\begin{itemize}
+    \item \texttt{\%hn} --- scrive i 2 byte meno significativi del counter (\textit{short});
+    \item \texttt{\%hhn} --- scrive il byte meno significativo del counter (\textit{char}).
+\end{itemize}
+
+Usando \texttt{\%hhn} su 4 indirizzi consecutivi si può scrivere qualsiasi valore a 32 bit, un byte alla volta, con un incremento massimo del counter di 255 per ogni passo. Se il byte meno significativo del counter è $c$ e si vuole scrivere un valore $v < c$, non si può decrementare il counter, ma si può aggiungere $256 - c + v$ per ottenere il valore desiderato per overflow.
+
+\paragraph{Esempio.} Si vuole scrivere il valore \texttt{0x44552233} all'indirizzo \texttt{0x01020304}, su un sistema a 32 bit con $o = 0$ e format string allineata alla stack line. Assumendo un output counter iniziale a 32 (dovuto alla parte di stringa che precede gli specificatori), la format string è:
+
+\begin{verbatim}
+"AAAA\x04\x03\x02\x01BBBB\x05\x03\x02\x01"
+"CCCC\x06\x03\x02\x01DDDD\x07\x03\x02\x01"
+"%36c%hhn%17c%hhn%205c%hhn%17c%hhn"
+\end{verbatim}
+
+\begin{itemize}
+    \item \texttt{\%36c}: counter $\to 32 + 36 = 68 = \texttt{0x44}$; \texttt{\%hhn} scrive \texttt{0x44} a \texttt{0x01020304}
+    \item \texttt{\%17c}: counter $\to 68 + 17 = 85 = \texttt{0x55}$; \texttt{\%hhn} scrive \texttt{0x55} a \texttt{0x01020305}
+    \item \texttt{\%205c}: counter $\to 85 + 205 = 290$, LSB $= \texttt{0x22}$; \texttt{\%hhn} scrive \texttt{0x22} a \texttt{0x01020306}
+    \item \texttt{\%17c}: counter $\to 290 + 17 = 307$, LSB $= \texttt{0x33}$; \texttt{\%hhn} scrive \texttt{0x33} a \texttt{0x01020307}
+\end{itemize}
+
+Le stringhe \texttt{"AAAA"}, \texttt{"BBBB"}, ecc. servono come argomenti fittizi per le istruzioni \texttt{\%mc} e per mantenere l'allineamento alla stack line; gli altri argomenti sono gli indirizzi dei singoli byte della locazione target, a partire dal meno significativo.
+
+\subsection{Mitigazioni}
+
+Il compilatore \texttt{gcc} e la libreria \texttt{glibc} includono diverse mitigazioni per questo tipo di attacchi. Queste sono attivate quando la macro \texttt{\_FORTIFY\_SOURCE} è definita e il livello di ottimizzazione è almeno 1 (\texttt{-O} o superiore). La macro può essere impostata a \texttt{1} o \texttt{2}, con quest'ultimo valore che abilita controlli più severi.
+
+Con \texttt{\_FORTIFY\_SOURCE=2}, le mitigazioni più rilevanti per le format string sono:
+
+\begin{itemize}
+    \item \texttt{glibc} termina il processo se una format string con accesso casuale agli argomenti non usa tutti gli argomenti;
+    \item \texttt{glibc} termina il processo se una format string contenente l'operatore \texttt{\%n} viene letta da \textbf{memoria scrivibile} (condizione necessaria affinché l'attaccante possa controllarla).
+\end{itemize}
+
+Questi controlli rendono molto più difficili le forme più avanzate di sfruttamento, in particolare le scritture arbitrarie in memoria. I compilatori moderni emettono inoltre dei \textit{warning} quando le funzioni della famiglia \texttt{printf()} sono usate in modo potenzialmente insicuro; in \texttt{gcc} si abilitano con l'opzione \texttt{-Wformat-security}.
 
 
 
