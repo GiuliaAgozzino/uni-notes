@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.20)  11 MAY 2026 14:20
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.20)  12 MAY 2026 11:10
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -773,17 +773,27 @@ File: lstlang2.sty 2025/11/14 1.11b listings language file
 (C:\Users\giuli\AppData\Local\Programs\MiKTeX\tex/latex/listings\lstlang3.sty
 File: lstlang3.sty 2025/11/14 1.11b listings language file
 )
-[15] [16] [17] [18] [19] (sicurezza_reti.aux)
+[15] [16] [17] [18]
+! Undefined control sequence.
+l.1148 ...tainerizzazione è \textbf{Docker} (\url
+                                                  {https://www.docker.com/}).
+The control sequence at the end of the top line
+of your error message was never \def'ed. If you have
+misspelled it (e.g., `\hobx'), type `I' and the correct
+spelling (e.g., `I\hbox'). Otherwise just continue,
+and I'll forget about whatever was undefined.
+
+[19] [20] [21] (sicurezza_reti.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2025-12-24>
  ***********
  ) 
 Here is how much of TeX's memory you used:
- 17099 strings out of 467871
- 329010 string characters out of 5418376
+ 17100 strings out of 467871
+ 329018 string characters out of 5418376
  951194 words of memory out of 5000000
- 45696 multiletter control sequences out of 15000+600000
+ 45697 multiletter control sequences out of 15000+600000
  634021 words of font info for 61 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  84i,11n,104p,518b,1613s stack positions out of 10000i,1000n,20000p,200000b,200000s
@@ -804,9 +814,9 @@ s/cm/cmsy10.pfb><C:/Users/giuli/AppData/Local/Programs/MiKTeX/fonts/type1/publi
 c/amsfonts/cm/cmti10.pfb><C:/Users/giuli/AppData/Local/Programs/MiKTeX/fonts/ty
 pe1/public/amsfonts/cm/cmtt10.pfb><C:/Users/giuli/AppData/Local/Programs/MiKTeX
 /fonts/type1/public/amsfonts/cm/cmtt12.pfb>
-Output written on sicurezza_reti.pdf (19 pages, 603680 bytes).
+Output written on sicurezza_reti.pdf (21 pages, 612565 bytes).
 PDF statistics:
- 166 PDF objects out of 1000 (max. 8388607)
+ 172 PDF objects out of 1000 (max. 8388607)
  0 named destinations out of 1000 (max. 500000)
  58 words of extra memory for PDF output out of 10000 (max. 10000000)
 

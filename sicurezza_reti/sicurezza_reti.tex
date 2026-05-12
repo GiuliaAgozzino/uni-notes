@@ -1122,7 +1122,122 @@ temporanea:
 \end{itemize}
 
 
+\section{Docker}
 
+\subsection{Esecuzione tradizionale, virtualizzata e in contenitori}
+
+Esistono tre modalità principali per eseguire applicazioni:
+
+\begin{itemize}
+    \item \textbf{Esecuzione tradizionale (fisica):} le applicazioni girano direttamente sul sistema operativo dell'host, condividendo le stesse risorse. Non esiste alcun meccanismo per limitare le risorse per singola applicazione, e isolare le applicazioni richiede server fisici separati, il che è costoso e spesso comporta un sottoutilizzo delle risorse.
+
+    \item \textbf{Esecuzione virtualizzata (VM):} tramite un software chiamato \textit{Hypervisor} (es. VirtualBox, Linux KVM), vengono create delle \textit{Macchine Virtuali (VM)} che emulano hardware fisico. Ogni VM esegue un proprio sistema operativo completo con le relative applicazioni, condividendo le risorse fisiche dell'host. Questo approccio:
+    \begin{itemize}
+        \item consente di isolare completamente le applicazioni tra di loro;
+        \item migliora l'utilizzo delle risorse fisiche;
+        \item aumenta la scalabilità.
+    \end{itemize}
+    È \textbf{pesante}: ogni VM richiede una copia intera del sistema operativo, il che comporta un overhead significativo. È ideale quando le applicazioni devono girare su versioni diverse del sistema operativo.
+
+    \item \textbf{Esecuzione in contenitori:} i \textit{contenitori} sono ambienti isolati che condividono lo stesso kernel del sistema operativo host. Non viene virtualizzato l'hardware, ma il sistema operativo stesso. Ogni contenitore viene eseguito a partire da una propria \textit{immagine} che include tutti i file necessari (binari, librerie, dipendenze). Questo approccio è:
+    \begin{itemize}
+        \item \textbf{leggero}: la condivisione del kernel riduce drasticamente l'overhead rispetto alle VM;
+        \item fornisce un isolamento a livello di processo (meno rigido rispetto alle VM);
+        \item ideale per applicazioni che devono girare sullo stesso kernel.
+    \end{itemize}
+    Un esempio di tecnologia di containerizzazione è \textbf{Docker} (\url{https://www.docker.com/}).
+\end{itemize}
+
+\subsection{Immagini e contenitori Docker}
+
+In Docker è fondamentale distinguere tra \textit{immagine} e \textit{contenitore}:
+
+\begin{itemize}
+    \item \textbf{Immagine:} è un pacchetto \textit{immutabile} (in sola lettura) che include tutto il necessario per eseguire un'applicazione: codice sorgente o compilato, runtime, librerie di sistema, strumenti e configurazioni. Le immagini sono il \textit{template} da cui vengono creati i contenitori.
+
+    \item \textbf{Contenitore:} è un'\textit{istanza in esecuzione} di un'immagine. Quando si avvia un contenitore, Docker aggiunge un \textit{livello scrivibile} sopra l'immagine di base: tutte le modifiche (scrittura di file, modifiche alla configurazione, ecc.) vengono salvate su questo livello e non alterano l'immagine sottostante.
+\end{itemize}
+
+A questi si aggiunge il concetto di \textbf{Registry}: un repository centralizzato per ospitare e distribuire immagini Docker. Può essere pubblico (es. \textit{Docker Hub}) o privato.
+
+\subsection{Ciclo di vita di un contenitore Docker}
+
+Le immagini Docker possono essere ottenute in due modi:
+\begin{itemize}
+    \item \textbf{Scaricandole} da un registry centrale come Docker Hub (\texttt{docker pull});
+    \item \textbf{Costruendole} localmente a partire da un \texttt{Dockerfile} (\texttt{docker build}).
+\end{itemize}
+
+Una volta disponibile un'immagine nel repository locale, il ciclo di vita di un contenitore segue questi stati:
+
+\begin{enumerate}
+    \item \textbf{Created}: il contenitore è stato creato a partire dall'immagine (aggiunta del livello scrivibile), ma non è ancora in esecuzione.
+    \item \textbf{Running}: il contenitore è in esecuzione. All'avvio viene eseguito automaticamente il comando definito nell'\textit{entrypoint} dell'immagine (può essere sovrascritto). Un contenitore rimane in esecuzione fintanto che il processo in primo piano dell'entrypoint è attivo.
+    \item \textbf{Paused}: il contenitore è temporaneamente sospeso.
+    \item \textbf{Stopped}: il contenitore è stato fermato.
+    \item \textbf{Deleted}: il contenitore è stato rimosso.
+\end{enumerate}
+
+Le immagini personalizzate possono essere caricate (\texttt{push}) sul registry centrale per essere condivise o riutilizzate in altri ambienti (staging, produzione).
+
+\subsection{Dockerfile}
+
+Un \texttt{Dockerfile} è un file di testo che contiene le istruzioni per costruire automaticamente un'immagine Docker personalizzata. Il comando \texttt{docker build} legge il \texttt{Dockerfile} e produce l'immagine corrispondente.
+
+Le istruzioni principali sono:
+
+\begin{center}
+\begin{tabular}{|l|l|l|}
+\hline
+\textbf{Istruzione} & \textbf{Descrizione} & \textbf{Esempio} \\
+\hline
+\texttt{FROM <immagine>} & Imposta l'immagine di base & \texttt{FROM ubuntu} \\
+\texttt{RUN <cmd>} & Esegue un comando durante la build & \texttt{RUN apt install apache2} \\
+\texttt{COPY <src> <dest>} & Copia un file nel filesystem dell'immagine & \texttt{COPY vh.conf /etc/apache2/conf/} \\
+\texttt{CMD ["exec", ...]} & Definisce il comando eseguito all'avvio & \texttt{CMD ["apache2", "-D", "FOREGROUND"]} \\
+\hline
+\end{tabular}
+\end{center}
+
+\subsection{Comandi principali Docker}
+
+\subsubsection*{Gestione delle immagini}
+\begin{itemize}
+    \item \texttt{docker pull <immagine>} --- scarica un'immagine da Docker Hub
+    \item \texttt{docker build -t <nome> .} --- costruisce un'immagine dal \texttt{Dockerfile} nella directory corrente
+    \item \texttt{docker images} --- elenca le immagini presenti nel repository locale
+    \item \texttt{docker rmi <immagine>} --- rimuove un'immagine
+\end{itemize}
+
+\subsubsection*{Gestione dei contenitori}
+\begin{itemize}
+    \item \texttt{docker run <immagine>} --- crea e avvia un contenitore
+    \item \texttt{docker run --entrypoint <cmd> <immagine>} --- avvia un contenitore sovrascrivendo l'entrypoint predefinito
+    \item \texttt{docker exec -it <containerID> <cmd>} --- esegue un comando (es. \texttt{/bin/bash}) all'interno di un contenitore già in esecuzione
+    \item \texttt{docker stop <containerID>} --- ferma un contenitore
+    \item \texttt{docker rm <containerID>} --- rimuove un contenitore
+    \item \texttt{docker ps -a} --- elenca tutti i contenitori (in esecuzione e fermati)
+\end{itemize}
+
+\subsection{Docker Compose}
+
+\textbf{Docker Compose} è uno strumento che permette di definire ed eseguire applicazioni composte da \textit{più contenitori} tramite un unico file di configurazione: \texttt{docker-compose.yaml}.
+
+Il file utilizza la sintassi \textbf{YAML} e definisce:
+\begin{itemize}
+    \item \textbf{Servizi}: la configurazione applicata a ciascun contenitore (equivalente ai parametri passati a \texttt{docker run});
+    \item \textbf{Reti} (opzionale): configurazione delle reti virtuali tra i contenitori;
+    \item \textbf{Volumi} (opzionale): configurazione dei volumi per la persistenza dei dati.
+\end{itemize}
+
+\subsubsection*{Comandi principali di Docker Compose}
+\begin{itemize}
+    \item \texttt{docker-compose up -d} --- (ri)costruisce le immagini se necessario e avvia tutti i servizi in background
+    \item \texttt{docker-compose stop} --- ferma i servizi senza rimuoverli
+    \item \texttt{docker-compose start -d} --- riavvia i servizi fermati
+    \item \texttt{docker-compose down} --- ferma e rimuove i contenitori e le reti create da Compose
+    \item \texttt{docker-compose logs -f [nome\_servizio]} --- mostra i log in tempo reale (output dell'entrypoint)
+\end{itemize}
 
 
 
