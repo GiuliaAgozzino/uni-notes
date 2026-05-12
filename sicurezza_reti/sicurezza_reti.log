@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.20)  12 MAY 2026 11:28
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.20)  12 MAY 2026 11:40
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -773,17 +773,7 @@ File: lstlang2.sty 2025/11/14 1.11b listings language file
 (C:\Users\giuli\AppData\Local\Programs\MiKTeX\tex/latex/listings\lstlang3.sty
 File: lstlang3.sty 2025/11/14 1.11b listings language file
 )
-[15] [16] [17] [18]
-! Undefined control sequence.
-l.1148 ...tainerizzazione è \textbf{Docker} (\url
-                                                  {https://www.docker.com/}).
-The control sequence at the end of the top line
-of your error message was never \def'ed. If you have
-misspelled it (e.g., `\hobx'), type `I' and the correct
-spelling (e.g., `I\hbox'). Otherwise just continue,
-and I'll forget about whatever was undefined.
-
-[19] [20] [21] [22]
+[15] [16] [17] [18] [19] [20] [21] [22]
 LaTeX Font Info:    Trying to load font information for OMS+cmtt on input line 
 1343.
 LaTeX Font Info:    No file OMScmtt.fd. on input line 1343.
@@ -829,7 +819,7 @@ msfonts/cm/cmsy10.pfb><C:/Users/giuli/AppData/Local/Programs/MiKTeX/fonts/type1
 /public/amsfonts/cm/cmti10.pfb><C:/Users/giuli/AppData/Local/Programs/MiKTeX/fo
 nts/type1/public/amsfonts/cm/cmtt10.pfb><C:/Users/giuli/AppData/Local/Programs/
 MiKTeX/fonts/type1/public/amsfonts/cm/cmtt12.pfb>
-Output written on sicurezza_reti.pdf (24 pages, 627078 bytes).
+Output written on sicurezza_reti.pdf (24 pages, 626986 bytes).
 PDF statistics:
  186 PDF objects out of 1000 (max. 8388607)
  0 named destinations out of 1000 (max. 500000)

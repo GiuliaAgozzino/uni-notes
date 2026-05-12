@@ -1145,7 +1145,7 @@ Esistono tre modalità principali per eseguire applicazioni:
         \item fornisce un isolamento a livello di processo (meno rigido rispetto alle VM);
         \item ideale per applicazioni che devono girare sullo stesso kernel.
     \end{itemize}
-    Un esempio di tecnologia di containerizzazione è \textbf{Docker} (\url{https://www.docker.com/}).
+    Un esempio di tecnologia di containerizzazione è \textbf{Docker}.
 \end{itemize}
 
 \subsection*{Immagini e contenitori Docker}
@@ -1242,7 +1242,7 @@ Il file utilizza la sintassi \textbf{YAML} e definisce:
 
 \section{Format String}
 
-\subsection{Introduzione}
+\subsection*{Introduzione}
 
 Le \textit{format string} sono le stringhe di controllo passate alle funzioni della famiglia \texttt{printf()}, che contengono il template di output per quelle funzioni. Queste funzioni sono vulnerabili ogni volta che un attaccante riesce a controllare la format string stessa.
 
@@ -1250,7 +1250,7 @@ Queste vulnerabilità possono essere estremamente potenti nelle mani di un attac
 
 È evidente come questi poteri permettano a un attaccante di aggirare completamente le protezioni come i \textit{stack canary}, ad esempio leggendo il canary dalla memoria, sovrascrivendo il canary globale, oppure sovrascrivendo un indirizzo di ritorno senza toccare il canary.
 
-\subsection{Il bug della format string}
+\subsection*{Il bug della format string}
 
 Il vettore di attacco deriva dal modo in cui le \textit{funzioni variadiche} sono implementate in C. Le funzioni variadiche sono dichiarate terminando la lista dei loro argomenti con \texttt{"..."}. Ad esempio, \texttt{printf()} può essere dichiarata come:
 
@@ -1284,7 +1284,7 @@ printf(buf);
 
 dove il contenuto di \texttt{buf} è controllato dall'attaccante. Il programmatore voleva semplicemente stampare una stringa, ma \texttt{printf()} interpreta ogni carattere \texttt{\%} dentro \texttt{buf} come uno specificatore di formato. Ciascuno di questi specificatori richiede un argomento corrispondente, e \texttt{printf()} leggerà i registri o le locazioni di memoria dove quell'argomento avrebbe dovuto trovarsi — il tutto sotto il controllo dell'attaccante. Il modo corretto per stampare una stringa è \texttt{puts(buf)} oppure \texttt{printf("\%s", buf)}.
 
-\subsection{Sfruttare le vulnerabilità di format string}
+\subsection*{Sfruttare le vulnerabilità di format string}
 
 È utile pensare a \texttt{printf()} come a una \textit{macchina virtuale} con il proprio linguaggio di programmazione. La format string è il \textit{programma}, e le istruzioni sono i caratteri normali e gli specificatori di formato. La macchina \texttt{printf()} ha il proprio \textit{instruction pointer} che punta al prossimo carattere da ``eseguire'' e si muove solo in avanti, senza salti né cicli.
 
@@ -1302,13 +1302,13 @@ printf("AAAAA%nBBB%nCCCC", &cnt1, &cnt2);
 
 assegnerà \texttt{5} a \texttt{cnt1} e \texttt{8} a \texttt{cnt2}.
 
-\subsubsection{Lettura dallo stack}
+\subsubsection*{Lettura dallo stack}
 
 Il modo più semplice di sfruttare una format string vulnerability è far trapelare informazioni dallo stack del processo vittima. Su sistemi a 32 bit, una sequenza di specificatori \texttt{\%x} causerà la stampa di valori consecutivi dallo stack. Su sistemi a 64 bit, i primi 5 \texttt{\%lx} stamperanno il contenuto dei registri \texttt{rsi}, \texttt{rdx}, \texttt{rcx}, \texttt{r8} e \texttt{r9}; i successivi inizieranno a stampare dati dallo stack. Studiando il binario, o semplicemente osservando l'output, l'attaccante può individuare quale di questi valori corrisponde allo stack canary. Si noti che su sistemi a 64 bit è necessario usare \texttt{\%lx} (non \texttt{\%x}), poiché \texttt{\%x} legge solo 4 byte in entrambi i sistemi.
 
 La principale difficoltà per l'attaccante è la limitazione di spazio nel buffer: l'argument pointer avanza di almeno una \textit{stack line} per ogni specificatore, e con un buffer di dimensione $s$ si possono scorrere al massimo $\lfloor s/2 \rfloor$ righe dello stack, il che potrebbe non essere sufficiente a raggiungere la posizione del canary.
 
-\subsubsection{Accesso casuale agli argomenti}
+\subsubsection*{Accesso casuale agli argomenti}
 
 La format string supporta anche l'accesso diretto agli argomenti tramite la sintassi \texttt{\%n\$}, che seleziona l'$n$-esimo argomento direttamente. Per esempio:
 
@@ -1322,7 +1322,7 @@ In alcuni casi questa sintassi permette di superare le limitazioni di spazio: se
 
 Tuttavia, secondo lo standard, l'accesso casuale e quello sequenziale agli argomenti sono \textbf{mutualmente esclusivi}, e non ci possono essere ``gap'' nella lista degli argomenti referenziati. Questo perché, per saltare all'$n$-esimo argomento, \texttt{printf()} deve conoscere quante stack lines occupano tutti gli argomenti precedenti (il che dipende dal tipo di ciascuno). Se la regola del no-gap è rispettata, l'accesso casuale non può essere usato per superare le limitazioni di spazio nel buffer.
 
-\subsubsection{Lettura arbitraria dalla memoria}
+\subsubsection*{Lettura arbitraria dalla memoria}
 
 La limitazione precedente può essere superata se l'attaccante controlla sia la format string che almeno parte dei suoi argomenti, ad esempio quando la format string è essa stessa sullo stack e può essere raggiunta dall'argument pointer.
 
@@ -1342,7 +1342,7 @@ I due \texttt{\%c} servono a spostare l'argument pointer fino all'inizio della f
 
 I byte nulli nell'indirizzo possono essere problematici (il byte nullo termina la format string), ma possono essere aggirati posizionando l'indirizzo \textit{dopo} gli specificatori. Con accesso casuale disponibile, basta usare \texttt{\%3\$s\textbackslash x11\textbackslash x22\textbackslash x00\textbackslash x44}.
 
-\subsubsection{Scrittura arbitraria in memoria}
+\subsubsection*{Scrittura arbitraria in memoria}
 
 Il potere massimo è la capacità di sovrascrivere parole arbitrarie di memoria con valori arbitrari, combinando \texttt{\%n} con il controllo preciso dell'output counter.
 
@@ -1371,7 +1371,7 @@ Usando \texttt{\%hhn} su 4 indirizzi consecutivi si può scrivere qualsiasi valo
 
 Le stringhe \texttt{"AAAA"}, \texttt{"BBBB"}, ecc. servono come argomenti fittizi per le istruzioni \texttt{\%mc} e per mantenere l'allineamento alla stack line; gli altri argomenti sono gli indirizzi dei singoli byte della locazione target, a partire dal meno significativo.
 
-\subsection{Mitigazioni}
+\subsection*{Mitigazioni}
 
 Il compilatore \texttt{gcc} e la libreria \texttt{glibc} includono diverse mitigazioni per questo tipo di attacchi. Queste sono attivate quando la macro \texttt{\_FORTIFY\_SOURCE} è definita e il livello di ottimizzazione è almeno 1 (\texttt{-O} o superiore). La macro può essere impostata a \texttt{1} o \texttt{2}, con quest'ultimo valore che abilita controlli più severi.
 
