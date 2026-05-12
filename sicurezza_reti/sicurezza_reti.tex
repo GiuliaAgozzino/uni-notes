@@ -1124,7 +1124,7 @@ temporanea:
 
 \section{Docker}
 
-\subsection{Esecuzione tradizionale, virtualizzata e in contenitori}
+\subsection*{Esecuzione tradizionale, virtualizzata e in contenitori}
 
 Esistono tre modalità principali per eseguire applicazioni:
 
@@ -1148,7 +1148,7 @@ Esistono tre modalità principali per eseguire applicazioni:
     Un esempio di tecnologia di containerizzazione è \textbf{Docker} (\url{https://www.docker.com/}).
 \end{itemize}
 
-\subsection{Immagini e contenitori Docker}
+\subsection*{Immagini e contenitori Docker}
 
 In Docker è fondamentale distinguere tra \textit{immagine} e \textit{contenitore}:
 
@@ -1160,7 +1160,7 @@ In Docker è fondamentale distinguere tra \textit{immagine} e \textit{contenitor
 
 A questi si aggiunge il concetto di \textbf{Registry}: un repository centralizzato per ospitare e distribuire immagini Docker. Può essere pubblico (es. \textit{Docker Hub}) o privato.
 
-\subsection{Ciclo di vita di un contenitore Docker}
+\subsection*{Ciclo di vita di un contenitore Docker}
 
 Le immagini Docker possono essere ottenute in due modi:
 \begin{itemize}
@@ -1180,7 +1180,7 @@ Una volta disponibile un'immagine nel repository locale, il ciclo di vita di un 
 
 Le immagini personalizzate possono essere caricate (\texttt{push}) sul registry centrale per essere condivise o riutilizzate in altri ambienti (staging, produzione).
 
-\subsection{Dockerfile}
+\subsection*{Dockerfile}
 
 Un \texttt{Dockerfile} è un file di testo che contiene le istruzioni per costruire automaticamente un'immagine Docker personalizzata. Il comando \texttt{docker build} legge il \texttt{Dockerfile} e produce l'immagine corrispondente.
 
@@ -1199,7 +1199,7 @@ Le istruzioni principali sono:
 \end{tabular}
 \end{center}
 
-\subsection{Comandi principali Docker}
+\subsection*{Comandi principali Docker}
 
 \subsubsection*{Gestione delle immagini}
 \begin{itemize}
@@ -1219,7 +1219,7 @@ Le istruzioni principali sono:
     \item \texttt{docker ps -a} --- elenca tutti i contenitori (in esecuzione e fermati)
 \end{itemize}
 
-\subsection{Docker Compose}
+\subsection*{Docker Compose}
 
 \textbf{Docker Compose} è uno strumento che permette di definire ed eseguire applicazioni composte da \textit{più contenitori} tramite un unico file di configurazione: \texttt{docker-compose.yaml}.
 
