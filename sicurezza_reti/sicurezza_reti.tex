@@ -1752,7 +1752,7 @@ root server corrispondono in realtà a centinaia di istanze fisiche distribuite
 nel mondo.
 
 
-\section{Il Caching DNS e perché è un bersaglio}
+\section*{Il Caching DNS e perché è un bersaglio}
 
 Quando un resolver ottiene la risposta a una query, la \textbf{memorizza in
 cache} per evitare di dover risalire ogni volta la gerarchia DNS. Vengono
@@ -1765,18 +1765,17 @@ resolver deve rieseguire la query.
 Il caching è molto utile per le prestazioni, ma introduce un rischio serio:
 se un attaccante riesce a inserire nella cache del resolver un record
 \emph{falso}, tutti i client che si appoggiano a quel resolver riceveranno
-l'indirizzo IP sbagliato --- senza accorgersene --- per tutto il tempo del TTL.
+l'indirizzo IP sbagliato senza accorgersene per tutto il tempo del TTL.
 Questo è esattamente l'obiettivo del \textbf{cache poisoning}.
 
-% ---------------------------------------------------------------
-\section{Cache Poisoning: il concetto di base}
+\section*{Cache Poisoning: il concetto di base}
 
 Lo scopo dell'attacco è \textbf{inserire informazioni false nella cache di un
 nameserver ricorsivo}. Tutti i client di quel resolver riceveranno indirizzi
 IP fasulli per il nome bersaglio, inconsapevolmente e per l'intera durata
 del TTL impostato dall'attaccante.
 
-\subsection{Come il DNS si protegge (in teoria)}
+\subsection*{Come il DNS si protegge (in teoria)}
 
 Il DNS non accetta qualsiasi risposta che arriva: applica quattro controlli
 prima di ritenere valida una risposta.
@@ -1805,8 +1804,7 @@ informazioni relative allo stesso dominio della query. Questo impedisce a un
 nameserver di rispondere, ad esempio, alla query per \texttt{www.unixwiz.net}
 includendo anche record falsi per \texttt{BankOfSteve.com}.
 
-% ---------------------------------------------------------------
-\section{Attacco versione 1: indovinare il Query ID}
+\section*{Attacco versione 1: indovinare il Query ID}
 
 Nei nameserver più vecchi il Query ID veniva semplicemente
 \textbf{incrementato di 1} ad ogni query. Questo rendeva l'attacco molto
@@ -1893,15 +1891,15 @@ semplice.
     \item Bisogna indovinare correttamente il Query ID.
 \end{itemize}
 
-% ---------------------------------------------------------------
-\section{Attacco di Kaminsky: attaccare i record Authority}
+
+\section*{Attacco di Kaminsky: attaccare i record Authority}
 
 Nel 2008 Dan Kaminsky rese pubblica una variante molto più efficace. Il
 problema dei vecchi attacchi era che, se il nome bersaglio era già in cache,
 bisognava aspettare la scadenza del TTL prima di ritentare. Kaminsky aggirò
 questo limite in modo elegante.
 
-\subsection{L'idea chiave}
+\subsection*{L'idea chiave}
 
 Invece di prendere di mira direttamente \texttt{www.bankofsteve.com},
 l'attaccante punta ai \textbf{record di delega} (record NS nella sezione
@@ -1909,7 +1907,7 @@ Authority). Se riesce a far credere al resolver vittima che il nameserver
 autoritativo per \texttt{bankofsteve.com} è il proprio server, \emph{controlla
 tutta la zona}, non solo un singolo nome.
 
-\subsection{Sequenza dell'attacco}
+\subsection*{Sequenza dell'attacco}
 
 \begin{enumerate}[label=\Circled{\arabic*}]
     \item L'attaccante chiede al resolver vittima un nome \textbf{casuale e
@@ -1932,7 +1930,7 @@ tutta la zona}, non solo un singolo nome.
         il primo tentativo fallisce, senza dover aspettare nessun TTL.
 \end{enumerate}
 
-\subsection{Perché è così pericoloso}
+\subsection*{Perché è così pericoloso}
 
 Controllare il nameserver autoritativo nella cache del resolver significa
 controllare \emph{tutto ciò che riguarda quel dominio}:
@@ -1956,8 +1954,8 @@ $50/65536 \approx 0{,}08\%$. Sembra bassa, ma ripetendo l'attacco su
 nomi casuali diversi (che non sono mai in cache) il successo si raggiunge
 in pochi secondi, come dimostrò Kaminsky.
 
-% ---------------------------------------------------------------
-\section{Triggering: come far partire una query}
+
+\section*{Triggering: come far partire una query}
 
 Un elemento spesso sottovalutato è che l'attaccante deve \emph{far sì} che
 il resolver vittima emetta una query per il dominio bersaglio. In realtà
@@ -1975,9 +1973,9 @@ accorga:
 \end{itemize}
 
 % ---------------------------------------------------------------
-\section{Difese contro il Cache Poisoning}
+\section*{Difese contro il Cache Poisoning}
 
-\subsection{Randomizzazione della porta UDP (Source Port Randomization)}
+\subsection*{Randomizzazione della porta UDP (Source Port Randomization)}
 
 Invece di usare sempre la stessa porta per le query in uscita, il resolver
 sceglie una \textbf{porta casuale} ogni volta. In questo modo l'attaccante
@@ -1986,7 +1984,7 @@ bit circa di entropia effettiva), portando lo spazio delle combinazioni da
 65.536 a circa 136 milioni. Un attacco che prima durava secondi richiede
 ore.
 
-\subsection{Doppia query}
+\subsection*{Doppia query}
 
 Si potrebbe richiedere ogni nome due volte e accettare la risposta solo se
 il Query ID corrisponde in entrambe le query. L'attaccante dovrebbe indovinare
@@ -1994,7 +1992,7 @@ due Query ID separati (32 bit totali di entropia), rendendo l'attacco
 praticamente impossibile. Il limite di questo approccio è l'overhead: ogni
 risoluzione richiede il doppio delle query.
 
-\subsection{Bailiwick checking più rigoroso}
+\subsection*{Bailiwick checking più rigoroso}
 
 Le cache devono scartare qualsiasi informazione su domini che non rientrano
 nell'ambito della risposta ricevuta. Ad esempio, se si riceve una risposta
@@ -2003,7 +2001,7 @@ a \texttt{yahoo.com}, quei record devono essere ignorati a meno che non
 provengano dai server autoritativi di \texttt{yahoo.com} stesso, dai server
 \texttt{.com} o dai root server.
 
-\subsection{DNSSEC (soluzione definitiva)}
+\subsection*{DNSSEC (soluzione definitiva)}
 
 Nessuna delle difese precedenti è completamente sicura perché il problema
 di fondo è che \textbf{il DNS non autentica le risposte}. La soluzione
@@ -2013,8 +2011,8 @@ resolver può verificare la firma e, se non corrisponde, scartare la
 risposta indipendentemente dal fatto che Query ID e porta siano corretti.
 Purtroppo DNSSEC non è ancora adottato universalmente.
 
-% ---------------------------------------------------------------
-\section{Reverse DNS Spoofing}
+
+\section*{Reverse DNS Spoofing}
 
 Storicamente, alcuni sistemi Unix concedevano accesso remoto (tramite
 \texttt{rsh} o \texttt{rlogin}) sulla base del \emph{nome host} del client,
@@ -2035,8 +2033,8 @@ dal reverse lookup si risolve di nuovo nell'indirizzo IP originale
 (\emph{forward-confirmed reverse DNS}). Questa tecnica di difesa, se
 implementata, avrebbe reso l'attacco molto più difficile.
 
-% ---------------------------------------------------------------
-\section{Altri attacchi ai nameserver}
+
+\section*{Altri attacchi ai nameserver}
 
 \begin{description}[leftmargin=3cm, style=nextline]
     \item[DOS ``exploit to fail''] Sfrutta una vulnerabilità in un componente
@@ -2061,8 +2059,8 @@ implementata, avrebbe reso l'attacco molto più difficile.
         query legittime.
 \end{description}
 
-% ---------------------------------------------------------------
-\section{Riepilogo delle vulnerabilità DNS}
+
+\section*{Riepilogo delle vulnerabilità DNS}
 
 \begin{center}
 \renewcommand{\arraystretch}{1.5}
