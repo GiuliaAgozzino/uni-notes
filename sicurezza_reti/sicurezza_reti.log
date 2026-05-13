@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.20)  13 MAY 2026 11:35
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.4.20)  13 MAY 2026 14:00
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -797,7 +797,12 @@ del DNS, ov-ve-ro una li-bre-ria com-pi-la-ta al-l'in-ter-no dei pro-gram-mi (e
 s. \OT1/cmtt/m/n/10 gethostbyname()
  []
 
-[25] [26] [27] [28] (sicurezza_reti.aux)
+[25] [26] [27] [28] [29] [30] [31]
+Underfull \hbox (badness 2150) in paragraph at lines 2073--2074
+[]\OT1/cmr/m/n/10 Randomizzazione Que-ry ID e
+ []
+
+[32] (sicurezza_reti.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2025-12-24>
@@ -808,10 +813,10 @@ LaTeX Font Warning: Some font shapes were not available, defaults substituted.
 
  ) 
 Here is how much of TeX's memory you used:
- 17348 strings out of 467871
- 334636 string characters out of 5418376
+ 17389 strings out of 467871
+ 335370 string characters out of 5418376
  951194 words of memory out of 5000000
- 45943 multiletter control sequences out of 15000+600000
+ 45984 multiletter control sequences out of 15000+600000
  634617 words of font info for 63 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  84i,14n,104p,836b,1613s stack positions out of 10000i,1000n,20000p,200000b,200000s
@@ -835,9 +840,9 @@ type1/public/amsfonts/cm/cmsy10.pfb><C:/Users/giuli/AppData/Local/Programs/MiKT
 eX/fonts/type1/public/amsfonts/cm/cmti10.pfb><C:/Users/giuli/AppData/Local/Prog
 rams/MiKTeX/fonts/type1/public/amsfonts/cm/cmtt10.pfb><C:/Users/giuli/AppData/L
 ocal/Programs/MiKTeX/fonts/type1/public/amsfonts/cm/cmtt12.pfb>
-Output written on sicurezza_reti.pdf (28 pages, 676531 bytes).
+Output written on sicurezza_reti.pdf (32 pages, 702886 bytes).
 PDF statistics:
- 209 PDF objects out of 1000 (max. 8388607)
+ 222 PDF objects out of 1000 (max. 8388607)
  0 named destinations out of 1000 (max. 500000)
  58 words of extra memory for PDF output out of 10000 (max. 10000000)
 

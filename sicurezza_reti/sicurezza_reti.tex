@@ -1752,5 +1752,333 @@ root server corrispondono in realtà a centinaia di istanze fisiche distribuite
 nel mondo.
 
 
+\section{Il Caching DNS e perché è un bersaglio}
+
+Quando un resolver ottiene la risposta a una query, la \textbf{memorizza in
+cache} per evitare di dover risalire ogni volta la gerarchia DNS. Vengono
+messi in cache sia i record positivi (un hostname che esiste) sia i record
+negativi (un hostname che non esiste, ad esempio per un errore di battitura).
+Ogni record porta con sé un valore \textbf{TTL (Time To Live)}: passato quel
+tempo, il record viene considerato scaduto e alla successiva richiesta il
+resolver deve rieseguire la query.
+
+Il caching è molto utile per le prestazioni, ma introduce un rischio serio:
+se un attaccante riesce a inserire nella cache del resolver un record
+\emph{falso}, tutti i client che si appoggiano a quel resolver riceveranno
+l'indirizzo IP sbagliato --- senza accorgersene --- per tutto il tempo del TTL.
+Questo è esattamente l'obiettivo del \textbf{cache poisoning}.
+
+% ---------------------------------------------------------------
+\section{Cache Poisoning: il concetto di base}
+
+Lo scopo dell'attacco è \textbf{inserire informazioni false nella cache di un
+nameserver ricorsivo}. Tutti i client di quel resolver riceveranno indirizzi
+IP fasulli per il nome bersaglio, inconsapevolmente e per l'intera durata
+del TTL impostato dall'attaccante.
+
+\subsection{Come il DNS si protegge (in teoria)}
+
+Il DNS non accetta qualsiasi risposta che arriva: applica quattro controlli
+prima di ritenere valida una risposta.
+
+\begin{enumerate}[label=\textbf{\arabic*.}]
+    \item \textbf{Risposta a query in attesa.} Il resolver accetta solo
+        risposte a query che ha effettivamente inviato. Qualsiasi risposta
+        non sollecitata viene ignorata.
+
+    \item \textbf{Stessa porta UDP.} La risposta deve arrivare sulla stessa
+        porta UDP su cui il resolver stava aspettando. Questo limita la
+        possibilità dell'attaccante di iniettare pacchetti a caso.
+
+    \item \textbf{Match della Question section.} La risposta DNS contiene
+        una copia della domanda originale. Il resolver verifica che
+        corrispondano esattamente: nome, tipo di record e classe.
+
+    \item \textbf{Match del Query ID (TXID).} Ogni query DNS porta un
+        identificatore a 16 bit (65.536 valori possibili). La risposta deve
+        contenere lo stesso TXID per essere accettata.
+\end{enumerate}
+
+Esiste anche il cosiddetto \textbf{bailiwick checking}: le sezioni
+\emph{Authority} e \emph{Additional} della risposta devono contenere solo
+informazioni relative allo stesso dominio della query. Questo impedisce a un
+nameserver di rispondere, ad esempio, alla query per \texttt{www.unixwiz.net}
+includendo anche record falsi per \texttt{BankOfSteve.com}.
+
+% ---------------------------------------------------------------
+\section{Attacco versione 1: indovinare il Query ID}
+
+Nei nameserver più vecchi il Query ID veniva semplicemente
+\textbf{incrementato di 1} ad ogni query. Questo rendeva l'attacco molto
+semplice.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    box/.style={draw, rounded corners, minimum width=2.8cm,
+                minimum height=0.75cm, font=\small, align=center},
+    att/.style={draw, rounded corners, minimum width=2.8cm,
+                minimum height=0.75cm, font=\small, align=center,
+                dashed},
+    arr/.style={-latex, thick},
+    fat/.style={-latex, thick, dashed, color=red!70!black}
+]
+% Nodi
+\node[box] (client)   at (0,    0) {Client};
+\node[box] (victim)   at (5,    0) {Resolver\\vittima};
+\node[box] (root)     at (5,    3) {Root/GTLD\\servers};
+\node[box] (legit)    at (10,   0) {ns1.bankofsteve\\(legittimo)};
+\node[att] (attacker) at (5,   -3) {Attaccante};
+
+% Step 1: client chiede al resolver
+\draw[arr] (0.5, 0.2) -- (3.6, 0.2);
+\node[font=\scriptsize, above] at (2, 0.3) {1. chiede www.bankofsteve.com};
+
+% Step 2: resolver chiede ai root server
+\draw[arr] (5, 0.75) -- (5, 2.25);
+\node[font=\scriptsize, right] at (5.1, 1.5) {2. query};
+
+% Step 3: root restituisce referral
+\draw[arr] (4.7, 2.25) -- (4.7, 0.75);
+\node[font=\scriptsize, left] at (4.6, 1.5) {3. referral};
+
+% Step 4: resolver chiede al nameserver legittimo con QID=1001
+\draw[arr] (6.4, 0.2) -- (8.6, 0.2);
+\node[font=\scriptsize, above] at (7.5, 0.3) {4. query QID=1001};
+
+% Step 5: risposta legittima (troppo tardi)
+\draw[arr, gray] (8.6, -0.2) -- (6.4, -0.2);
+\node[font=\scriptsize, below, gray] at (7.5, -0.3) {5. risposta legittima (troppo tardi)};
+
+% Step 2a: attaccante manda flusso di risposte false
+\draw[fat] (5, -2.25) -- (5, -0.75);
+\node[font=\scriptsize, right, color=red!70!black] at (5.1, -1.5) {2a. risposte false};
+\node[font=\scriptsize, right, color=red!70!black] at (5.1, -1.9) {QID=1001, IP falso};
+
+% Step 6: resolver ritorna risposta avvelenata al client
+\draw[fat] (3.6, -0.2) -- (0.5, -0.2);
+\node[font=\scriptsize, below, color=red!70!black] at (2, -0.35) {6. IP falso (cache avvelenata)};
+
+\end{tikzpicture}
+\caption{Attacco di cache poisoning con Query ID prevedibile}
+\end{figure}
+
+\begin{enumerate}[label=\Circled{\arabic*}]
+    \item L'attaccante fa una query legittima su un dominio che controlla
+        (es.\ \texttt{test.badguy.com}), in modo da osservare il Query ID
+        corrente usato dal resolver vittima --- o semplicemente annusa il
+        traffico di rete.
+
+    \item Sapendo che il prossimo Query ID sarà $N{+}1$, l'attaccante
+        \textbf{inonda il resolver} con risposte false che contengono:
+        l'IP del proprio server web, il Query ID previsto e i dati corretti
+        nella sezione Question (nome del sito bersaglio).
+
+    \item Se una di queste risposte false arriva al resolver
+        \emph{prima} di quella del nameserver legittimo, il resolver la
+        accetta e la mette in cache.
+
+    \item Da questo momento, chiunque chieda al resolver quell'indirizzo
+        riceve l'IP dell'attaccante.
+\end{enumerate}
+
+\paragraph{Condizioni necessarie per l'attacco.}
+\begin{itemize}
+    \item Il nome bersaglio \emph{non deve} essere già in cache (altrimenti
+        il resolver non fa nessuna query e bisogna aspettare la scadenza del
+        TTL).
+    \item L'attaccante deve essere \emph{più veloce} del nameserver legittimo:
+        se vittima e nameserver reale sono vicini in rete, la finestra
+        temporale è molto ridotta.
+    \item Bisogna indovinare correttamente il Query ID.
+\end{itemize}
+
+% ---------------------------------------------------------------
+\section{Attacco di Kaminsky: attaccare i record Authority}
+
+Nel 2008 Dan Kaminsky rese pubblica una variante molto più efficace. Il
+problema dei vecchi attacchi era che, se il nome bersaglio era già in cache,
+bisognava aspettare la scadenza del TTL prima di ritentare. Kaminsky aggirò
+questo limite in modo elegante.
+
+\subsection{L'idea chiave}
+
+Invece di prendere di mira direttamente \texttt{www.bankofsteve.com},
+l'attaccante punta ai \textbf{record di delega} (record NS nella sezione
+Authority). Se riesce a far credere al resolver vittima che il nameserver
+autoritativo per \texttt{bankofsteve.com} è il proprio server, \emph{controlla
+tutta la zona}, non solo un singolo nome.
+
+\subsection{Sequenza dell'attacco}
+
+\begin{enumerate}[label=\Circled{\arabic*}]
+    \item L'attaccante chiede al resolver vittima un nome \textbf{casuale e
+        inesistente} all'interno del dominio bersaglio, ad esempio
+        \texttt{www12345678.bankofsteve.com}. Un nome casuale non sarà mai
+        in cache, quindi il resolver deve per forza fare una nuova query.
+
+    \item Mentre il resolver sta aspettando la risposta legittima,
+        l'attaccante inonda il resolver con \textbf{risposte false} che
+        dicono: ``non so la risposta, ma il nameserver autoritativo per
+        \texttt{bankofsteve.com} è \texttt{ns1.bankofsteve.com}'', con il
+        campo \emph{glue} (sezione Additional) che punta all'IP del server
+        dell'attaccante.
+
+    \item Se il resolver accetta una di queste risposte false, aggiorna la
+        propria cache: ora crede che \textbf{il nameserver dell'attaccante
+        sia autoritativo per l'intera zona} \texttt{bankofsteve.com}.
+
+    \item L'attaccante ripete il procedimento con un nuovo nome casuale se
+        il primo tentativo fallisce, senza dover aspettare nessun TTL.
+\end{enumerate}
+
+\subsection{Perché è così pericoloso}
+
+Controllare il nameserver autoritativo nella cache del resolver significa
+controllare \emph{tutto ciò che riguarda quel dominio}:
+\begin{itemize}
+    \item si possono ridirigere i visitatori del sito web verso un server
+        falso (phishing);
+    \item si possono dirottare le email verso propri server tramite falsi
+        record MX;
+    \item impostando un TTL altissimo, i dati falsi rimangono in cache molto
+        a lungo;
+    \item l'attacco può essere portato anche contro domini di alto livello
+        come \texttt{.com} o \texttt{.net}, dirottando potenzialmente tutti
+        i nomi sotto quel TLD.
+\end{itemize}
+
+\paragraph{Efficacia statistica.}
+Con il Query ID a 16 bit ci sono 65.536 valori possibili. Se per ogni nome
+casuale l'attaccante invia 50 risposte false prima che arrivi quella
+legittima, la probabilità di successo su un singolo tentativo è circa
+$50/65536 \approx 0{,}08\%$. Sembra bassa, ma ripetendo l'attacco su
+nomi casuali diversi (che non sono mai in cache) il successo si raggiunge
+in pochi secondi, come dimostrò Kaminsky.
+
+% ---------------------------------------------------------------
+\section{Triggering: come far partire una query}
+
+Un elemento spesso sottovalutato è che l'attaccante deve \emph{far sì} che
+il resolver vittima emetta una query per il dominio bersaglio. In realtà
+ci sono molti modi per innescare un lookup DNS senza che la vittima se ne
+accorga:
+
+\begin{itemize}
+    \item \textbf{Ogni link o immagine} in una pagina web causa un DNS
+        lookup verso il dominio che ospita la risorsa. Non è necessario
+        JavaScript: basta un semplice tag \texttt{<img>}.
+    \item \textbf{I mail server} eseguono lookup DNS in molti momenti:
+        durante il saluto iniziale (\texttt{HELO}), per verificare il
+        mittente (\texttt{MAIL FROM}), durante i controlli anti-spam,
+        e quando tentano di consegnare email o rimbalzarle.
+\end{itemize}
+
+% ---------------------------------------------------------------
+\section{Difese contro il Cache Poisoning}
+
+\subsection{Randomizzazione della porta UDP (Source Port Randomization)}
+
+Invece di usare sempre la stessa porta per le query in uscita, il resolver
+sceglie una \textbf{porta casuale} ogni volta. In questo modo l'attaccante
+deve indovinare non solo il Query ID (16 bit) ma anche la porta (altri 11
+bit circa di entropia effettiva), portando lo spazio delle combinazioni da
+65.536 a circa 136 milioni. Un attacco che prima durava secondi richiede
+ore.
+
+\subsection{Doppia query}
+
+Si potrebbe richiedere ogni nome due volte e accettare la risposta solo se
+il Query ID corrisponde in entrambe le query. L'attaccante dovrebbe indovinare
+due Query ID separati (32 bit totali di entropia), rendendo l'attacco
+praticamente impossibile. Il limite di questo approccio è l'overhead: ogni
+risoluzione richiede il doppio delle query.
+
+\subsection{Bailiwick checking più rigoroso}
+
+Le cache devono scartare qualsiasi informazione su domini che non rientrano
+nell'ambito della risposta ricevuta. Ad esempio, se si riceve una risposta
+da un nameserver di \texttt{nasty.dom} che include record glue che puntano
+a \texttt{yahoo.com}, quei record devono essere ignorati a meno che non
+provengano dai server autoritativi di \texttt{yahoo.com} stesso, dai server
+\texttt{.com} o dai root server.
+
+\subsection{DNSSEC (soluzione definitiva)}
+
+Nessuna delle difese precedenti è completamente sicura perché il problema
+di fondo è che \textbf{il DNS non autentica le risposte}. La soluzione
+strutturale è \textbf{DNSSEC (DNS Security Extensions)}: ogni risposta DNS
+viene \emph{firmata crittograficamente} dal possessore della zona. Il
+resolver può verificare la firma e, se non corrisponde, scartare la
+risposta indipendentemente dal fatto che Query ID e porta siano corretti.
+Purtroppo DNSSEC non è ancora adottato universalmente.
+
+% ---------------------------------------------------------------
+\section{Reverse DNS Spoofing}
+
+Storicamente, alcuni sistemi Unix concedevano accesso remoto (tramite
+\texttt{rsh} o \texttt{rlogin}) sulla base del \emph{nome host} del client,
+registrato nel file \texttt{.rhosts}. Il flusso era:
+
+\begin{enumerate}[label=\textbf{\arabic*.}]
+    \item Arriva una connessione da un indirizzo IP numerico.
+    \item Il sistema esegue un \textbf{reverse DNS lookup} per ricavare il
+        nome host associato all'IP.
+    \item Se quel nome è in \texttt{.rhosts}, l'accesso viene concesso.
+\end{enumerate}
+
+Se un attaccante riesce ad alterare la risposta al reverse lookup (ad esempio
+tramite cache poisoning), il sistema bersaglio crederà che la connessione
+provenga da un host autorizzato. Il problema è che non esiste
+\emph{double-checking}: il sistema non verifica se il nome host ottenuto
+dal reverse lookup si risolve di nuovo nell'indirizzo IP originale
+(\emph{forward-confirmed reverse DNS}). Questa tecnica di difesa, se
+implementata, avrebbe reso l'attacco molto più difficile.
+
+% ---------------------------------------------------------------
+\section{Altri attacchi ai nameserver}
+
+\begin{description}[leftmargin=3cm, style=nextline]
+    \item[DOS ``exploit to fail''] Sfrutta una vulnerabilità in un componente
+        dell'infrastruttura DNS per causare l'interruzione del servizio di
+        risoluzione. Il nameserver smette di rispondere.
+
+    \item[DOS ``exploit to own''] Sfrutta una vulnerabilità per ottenere
+        privilegi amministrativi sul server. L'attaccante non si limita a
+        bloccare il servizio ma lo controlla.
+
+    \item[Reflection \& Amplification] Attacco DDoS distribuito. L'attaccante
+        invia query DNS con l'indirizzo IP della vittima come mittente
+        (IP spoofing). I server DNS rispondono alla vittima, amplificando il
+        traffico: una piccola query può generare una risposta molto più grande
+        (amplification factor). La vittima viene inondata da traffico che
+        non ha richiesto.
+
+    \item[Cache exhaustion] L'attaccante inonda il resolver con query per nomi
+        inesistenti. Il resolver tenta di risolverli, riceve risposte
+        \texttt{NXDOMAIN} (nome non trovato) e le mette in cache. La cache
+        si riempie di risposte inutili, riducendo la capacità di elaborare
+        query legittime.
+\end{description}
+
+% ---------------------------------------------------------------
+\section{Riepilogo delle vulnerabilità DNS}
+
+\begin{center}
+\renewcommand{\arraystretch}{1.5}
+\begin{tabular}{p{3.5cm} p{5cm} p{5cm}}
+\hline
+\textbf{Attacco} & \textbf{Obiettivo} & \textbf{Contromisura} \\
+\hline
+Cache poisoning (v1) & Inserire IP falso per un singolo nome & Randomizzazione Query ID e porta \\
+Kaminsky attack & Prendere controllo dell'intera zona & DNSSEC, bailiwick rigoroso \\
+Reverse DNS spoofing & Bypassare autenticazione basata su hostname & Forward-confirmed reverse DNS \\
+DOS / exploit & Bloccare o compromettere il server & Patching, ridondanza \\
+Amplification DDoS & Inondare una vittima tramite reflection & Filtri anti-spoofing (BCP38) \\
+Cache exhaustion & Saturare la cache del resolver & Rate limiting sulle query \\
+\hline
+\end{tabular}
+\end{center}
+
 
 \end{document}

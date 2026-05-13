@@ -12,23 +12,23 @@
 \contentsline {section}{\numberline {3}Docker}{19}{}%
 \contentsline {section}{\numberline {4}Format String}{21}{}%
 \contentsline {paragraph}{Esempio.}{23}{}%
-\contentsline {section}{\numberline {5}Introduzione al DNS}{25}{}%
-\contentsline {section}{\numberline {6}Struttura gerarchica dello spazio dei nomi}{25}{}%
-\contentsline {section}{\numberline {7}I server DNS e i loro ruoli}{25}{}%
-\contentsline {subsection}{\numberline {7.1}Root Name Server}{26}{}%
-\contentsline {subsection}{\numberline {7.2}TLD Server (Top-Level Domain)}{26}{}%
-\contentsline {subsection}{\numberline {7.3}Authoritative Name Server}{26}{}%
-\contentsline {subsection}{\numberline {7.4}Local Name Resolver (Recursive Resolver)}{26}{}%
-\contentsline {section}{\numberline {8}Terminologia chiave}{26}{}%
-\contentsline {section}{\numberline {9}Tipi di Resource Record}{27}{}%
-\contentsline {section}{\numberline {10}Tipi di query DNS}{27}{}%
-\contentsline {subsection}{\numberline {10.1}Query ricorsiva}{27}{}%
-\contentsline {subsection}{\numberline {10.2}Query iterativa}{27}{}%
-\contentsline {section}{\numberline {11}Esempio completo di risoluzione}{27}{}%
-\contentsline {paragraph}{Nota sulla sicurezza.}{28}{}%
-\contentsline {section}{\numberline {12}Risoluzione inversa}{28}{}%
-\contentsline {section}{\numberline {13}Struttura dei messaggi DNS}{28}{}%
-\contentsline {subsection}{\numberline {13.1}Campi principali dell'header DNS}{29}{}%
-\contentsline {section}{\numberline {14}Ottimizzazioni del DNS}{29}{}%
-\contentsline {subsection}{\numberline {14.1}Caching e TTL}{29}{}%
-\contentsline {subsection}{\numberline {14.2}Replica e prossimità geografica}{29}{}%
+\contentsline {section}{\numberline {5}Introduzione al DNS}{24}{}%
+\contentsline {section}{\numberline {6}Il Caching DNS e perché è un bersaglio}{30}{}%
+\contentsline {section}{\numberline {7}Cache Poisoning: il concetto di base}{30}{}%
+\contentsline {subsection}{\numberline {7.1}Come il DNS si protegge (in teoria)}{30}{}%
+\contentsline {section}{\numberline {8}Attacco versione 1: indovinare il Query ID}{30}{}%
+\contentsline {paragraph}{Condizioni necessarie per l'attacco.}{31}{}%
+\contentsline {section}{\numberline {9}Attacco di Kaminsky: attaccare i record Authority}{31}{}%
+\contentsline {subsection}{\numberline {9.1}L'idea chiave}{31}{}%
+\contentsline {subsection}{\numberline {9.2}Sequenza dell'attacco}{31}{}%
+\contentsline {subsection}{\numberline {9.3}Perché è così pericoloso}{32}{}%
+\contentsline {paragraph}{Efficacia statistica.}{32}{}%
+\contentsline {section}{\numberline {10}Triggering: come far partire una query}{32}{}%
+\contentsline {section}{\numberline {11}Difese contro il Cache Poisoning}{32}{}%
+\contentsline {subsection}{\numberline {11.1}Randomizzazione della porta UDP (Source Port Randomization)}{32}{}%
+\contentsline {subsection}{\numberline {11.2}Doppia query}{32}{}%
+\contentsline {subsection}{\numberline {11.3}Bailiwick checking più rigoroso}{33}{}%
+\contentsline {subsection}{\numberline {11.4}DNSSEC (soluzione definitiva)}{33}{}%
+\contentsline {section}{\numberline {12}Reverse DNS Spoofing}{33}{}%
+\contentsline {section}{\numberline {13}Altri attacchi ai nameserver}{33}{}%
+\contentsline {section}{\numberline {14}Riepilogo delle vulnerabilità DNS}{34}{}%
