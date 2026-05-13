@@ -1385,6 +1385,372 @@ Con \texttt{\_FORTIFY\_SOURCE=2}, le mitigazioni più rilevanti per le format st
 Questi controlli rendono molto più difficili le forme più avanzate di sfruttamento, in particolare le scritture arbitrarie in memoria. I compilatori moderni emettono inoltre dei \textit{warning} quando le funzioni della famiglia \texttt{printf()} sono usate in modo potenzialmente insicuro; in \texttt{gcc} si abilitano con l'opzione \texttt{-Wformat-security}.
 
 
+\section{Introduzione al DNS}
+
+Il \textbf{Domain Name System (DNS)} è uno dei servizi fondamentali di
+Internet. La sua funzione principale è tradurre i nomi di dominio leggibili
+dall'uomo come \texttt{www.google.com}  negli indirizzi IP numerici
+che le macchine usano per comunicare tra loro (es.\ \texttt{142.250.180.46}).
+
+Senza il DNS ogni utente dovrebbe memorizzare direttamente gli indirizzi IP
+dei siti che vuole visitare: un compito impraticabile su scala globale. Il
+DNS può essere paragonato a una gigantesca \emph{rubrica telefonica}
+distribuita di Internet.
+
+Un dato significativo: il servizio viene eseguito circa \textbf{1.000 miliardi
+di volte al giorno}. Per essere sostenibile a questa scala deve essere
+estremamente veloce l'intera sequenza di 8 pacchetti si completa
+tipicamente in meno di un secondo e non deve avere alcun singolo punto
+di fallimento.
+
+
+\section*{Struttura gerarchica dello spazio dei nomi}
+
+Il DNS organizza i nomi in una \textbf{gerarchia ad albero}, la cui radice
+è denominata \emph{root}. Scendendo dall'alto verso il basso si incontrano:
+
+\begin{enumerate}[label=\textbf{\arabic*.}]
+    \item \textbf{Root}: il livello apicale, gestito dai \emph{Root Name Server}.
+    \item \textbf{Top-Level Domain (TLD)}: domini di primo livello, come
+          \texttt{.com}, \texttt{.org}, \texttt{.net}, \texttt{.edu},
+          \texttt{.gov} e i domini nazionali (\texttt{.it}, \texttt{.uk},
+          \texttt{.fr}, \ldots).
+    \item \textbf{Second-Level Domain}: il dominio registrato da
+          un'organizzazione, es.\ \texttt{stanford} in \texttt{stanford.edu}.
+    \item \textbf{Sottodomini}: ulteriori livelli gestiti dall'organizzazione,
+          es.\ \texttt{cs} in \texttt{cs.stanford.edu}.
+\end{enumerate}
+
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    level distance=1.4cm,
+    sibling distance=2.2cm,
+    every node/.style={draw, rounded corners, font=\small,
+                       minimum width=1.1cm, minimum height=0.55cm},
+    edge from parent/.style={draw, -latex}
+]
+\node {root}
+    child { node {org} }
+    child { node {net} }
+    child { node {com}
+        child { node {uniba} }
+        child { node {unito}
+            child { node {di} }
+            child { node {dm} }
+        }
+        child { node {unimi} }
+    }
+    child { node {it} }
+    child { node {uk} }
+    child { node {ca} };
+\end{tikzpicture}
+\end{figure}
+
+\subsection*{Zona DNS}
+
+Una \textbf{zona} (o dominio) è una collezione di coppie
+\emph{hostname/indirizzo IP} gestite insieme da un'unica autorità
+amministrativa. Ad esempio, la zona \texttt{unixwiz.net} comprende tutti
+i record relativi a quel dominio: \texttt{www.unixwiz.net},
+\texttt{mvp.unixwiz.net}, \texttt{cs.unixwiz.net}, e così via.
+
+
+\section*{I server DNS e i loro ruoli}
+
+Il sistema DNS è \textbf{distribuito}: nessuna singola macchina conosce
+l'intera mappatura di Internet. Ogni server conosce la propria porzione e
+sa come \emph{delegare} le query agli altri. Esistono quattro categorie
+principali di server.
+
+\subsection*{Root Name Server}
+
+Sono i server al vertice della gerarchia. In Internet esistono \textbf{13
+indirizzi logici} di root server (da \texttt{A.ROOT-SERVERS.NET} a
+\texttt{M.ROOT-SERVERS.NET}), ma fisicamente la rete è composta da centinaia
+di nodi replicati in tutto il mondo per garantire ridondanza e prossimità
+geografica. I loro indirizzi IP sono quasi fissi e vengono distribuiti
+direttamente con il software DNS.
+
+I root server non conoscono gli indirizzi dei singoli host, ma sanno a quali
+server TLD bisogna rivolgersi per ogni dominio di primo livello. Quando
+ricevono una query che non possono risolvere direttamente, rispondono con
+un \emph{referral}: l'indicazione del prossimo server da interrogare.
+
+\subsection*{TLD Server (Top-Level Domain)}
+
+I server TLD sono responsabili di specifici domini di primo livello.
+Quando un root server riceve una query per \texttt{www.unixwiz.net}, risponde
+con i server TLD competenti per il dominio \texttt{.net} (i \emph{Global TLD
+server}, detti GTLD). Il GTLD non conosce la risposta finale, ma sa quali
+sono i nameserver autoritativi per \texttt{unixwiz.net} e li indica come
+passo successivo.
+
+\subsection*{Authoritative Name Server}
+
+Ogni organizzazione mantiene (o delega a un provider) uno o più
+\textbf{authoritative name server} per i propri domini. Questo server
+contiene i record DNS definitivi, ovvero le associazioni
+\emph{hostname $\to$ indirizzo IP} per tutti gli host di quella zona.
+
+La maggior parte delle università e delle grandi aziende implementa e
+mantiene un authoritative name server \textbf{primario} e uno
+\textbf{secondario} (backup). In alternativa è possibile affidarsi a server
+autoritativi di provider esterni.
+
+Quando un authoritative server risponde a una query, il flag
+\textbf{AA (Authoritative Answer)} nel pacchetto di risposta viene impostato
+a 1, a conferma che la risposta proviene da una fonte fidata per quella zona.
+
+\subsection*{Local Name Resolver (Recursive Resolver)}
+
+È il componente con cui il client interagisce direttamente. Normalmente è
+fornito dall'ISP. Questo server:
+
+\begin{itemize}
+    \item riceve la query dal client;
+    \item se conosce già la risposta (dalla cache locale), la restituisce
+          immediatamente;
+    \item altrimenti interroga la gerarchia DNS
+          (root $\to$ TLD $\to$ authoritative) e riporta il risultato al client.
+\end{itemize}
+
+I resolver usano \textbf{query ricorsive} verso il client e \textbf{query
+iterative} verso gli altri server della gerarchia.
+
+
+\section*{Terminologia chiave}
+
+\begin{description}[leftmargin=2.5cm, style=nextline]
+    \item[Nameserver] Software server che risponde alle domande DNS. Può essere
+        \emph{authoritative} (conosce direttamente la risposta) oppure
+        \emph{ricorsivo} (la ricerca per conto del client). I principali
+        software che implementano questo servizio sono \textbf{BIND},
+        \textbf{PowerDNS} e \textbf{djbdns}.
+    \item[Resolver] La componente \emph{client} del DNS, ovvero una libreria
+        compilata all'interno dei programmi (es.\ \texttt{gethostbyname()} in
+        UNIX). Sa come formulare e inviare una query al nameserver locale.
+    \item[Resource Record (RR)] Il DNS è un database di resource record.
+        Ogni record ha la forma:
+        \begin{center}
+            \texttt{(Name, Value, Type, TTL)}
+        \end{center}
+        dove il \textbf{TTL} (Time To Live) indica per quanti secondi il
+        record può essere tenuto in cache prima di essere considerato scaduto.
+\end{description}
+
+
+\section*{Tipi di Resource Record}
+
+Il DNS non si limita a mappare nomi in indirizzi IP, ma gestisce diversi
+tipi di record, ognuno con uno scopo specifico:
+
+\begin{description}[leftmargin=2cm, style=nextline]
+    \item[\texttt{A}] \textbf{Address record.} Associa un hostname a un
+        indirizzo IPv4. È il tipo di record più comune.
+    \item[\texttt{NS}] \textbf{Name Server.} Indica quale nameserver è
+        autoritativo per una determinata zona, puntando a un altro server.
+    \item[\texttt{MX}] \textbf{Mail eXchanger.} Specifica il server
+        responsabile della ricezione delle email per un dominio.
+    \item[\texttt{CNAME}] \textbf{Canonical Name.} Definisce un alias: associa
+        un nome alternativo a un nome canonico (funziona come un collegamento
+        simbolico nei file system).
+    \item[\texttt{SOA}] \textbf{Start of Authority.} Contiene metadati sulla
+        zona: il server primario, il contatto amministrativo, i parametri di
+        refresh e cosa fare se il master non è raggiungibile.
+    \item[\texttt{TXT}] \textbf{Text.} Campo testuale generico, usato ad
+        esempio per distribuire chiavi pubbliche del sito (DKIM) o per
+        verifiche di proprietà del dominio.
+\end{description}
+
+
+\section*{Tipi di query DNS}
+
+Esistono due modalità principali con cui i server DNS si scambiano
+informazioni.
+
+\subsection*{Query ricorsiva}
+
+Il server che riceve la query si fa carico di trovare la risposta completa,
+interrogando altri server se necessario. Restituisce sempre una \textbf{risposta
+definitiva}, mai un semplice riferimento. È il tipo di query che i client
+inviano al proprio resolver locale.
+
+\subsection*{Query iterativa}
+
+Il server risponde con il meglio che conosce: se ha la risposta la fornisce,
+altrimenti restituisce un \textbf{referral}, ovvero l'indirizzo del prossimo
+server da interrogare. Il chiamante dovrà fare una nuova query a quel server.
+È il tipo di query che i resolver usano quando risalgono la gerarchia DNS.
+
+\medskip
+\noindent
+In sintesi: il client fa una \emph{query ricorsiva} al proprio resolver; il
+resolver fa \emph{query iterative} verso root, TLD e authoritative server,
+raccoglie la risposta e la riporta al client.
+
+
+\section*{Esempio completo di risoluzione}
+
+Supponiamo che il nostro PC voglia conoscere l'indirizzo IP di
+\texttt{www.cs.stanford.edu}. Il diagramma seguente mostra i passi della
+risoluzione:
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    box/.style={draw, rounded corners, minimum width=3cm,
+                minimum height=0.8cm, font=\small, align=center},
+    arr/.style={-latex, thick}
+]
+% Coordinate assolute: (colonna, riga)
+\node[box] (client)   at (0,   0)   {Client\\(PC utente)};
+\node[box] (resolver) at (5,   0)   {Local DNS\\Resolver (ISP)};
+\node[box] (root)     at (5,   2.5) {Root \& .edu\\DNS server};
+\node[box] (stanford) at (10,  0)   {stanford.edu\\DNS server};
+\node[box] (cs)       at (10,  2.5) {cs.stanford.edu\\DNS server};
+ 
+\draw[arr] (client)   -- node[below,font=\footnotesize]{1. query}          (resolver);
+\draw[arr] (resolver) -- node[left, font=\footnotesize]{2. query root}      (root);
+\draw[arr] (root)     -- node[right,font=\footnotesize]{3. referral .edu}   (resolver);
+\draw[arr] (resolver) -- node[below,font=\footnotesize]{4. query stanford}  (stanford);
+\draw[arr] (stanford) -- node[right,font=\footnotesize]{5. referral cs}     (cs);
+\draw[arr] (cs)       -- node[left, font=\footnotesize]{6. risposta A}      (resolver);
+\draw[arr] (resolver) -- node[above,font=\footnotesize]{7. IP finale}       (client);
+\end{tikzpicture}
+\caption{Risoluzione iterativa di \texttt{www.cs.stanford.edu}}
+\end{figure}
+
+Descrizione passo per passo:
+
+\begin{enumerate}[label=\Circled{\arabic*}]
+    \item \textbf{Il client interroga il resolver locale.} Il browser chiama
+        \texttt{gethostbyname("www.cs.stanford.edu")}. Il resolver verifica
+        prima la cache: se il record è presente e non scaduto, risponde
+        immediatamente. Altrimenti procede.
+
+    \item \textbf{Il resolver interroga un Root Name Server.} Il resolver
+        conosce i 13 root server (inclusi nel software DNS) e ne sceglie uno
+        a caso. Il root server non conosce la risposta, ma risponde con un
+        referral ai server TLD per \texttt{.edu}.
+
+    \item \textbf{Il resolver interroga il TLD \texttt{.edu}.} Il TLD server
+        non conosce direttamente \texttt{cs.stanford.edu}, ma conosce i
+        nameserver autoritativi per \texttt{stanford.edu} e fornisce un
+        ulteriore referral.
+
+    \item \textbf{Il resolver interroga il server autoritativo di
+        \texttt{stanford.edu}.} Questo server risponde con i nameserver
+        responsabili del sottodominio \texttt{cs.stanford.edu}.
+
+    \item \textbf{Il resolver ottiene la risposta finale.} Interrogato il
+        server autoritativo per \texttt{cs.stanford.edu}, il resolver riceve
+        il record \texttt{A} con l'indirizzo IP cercato. Il flag \texttt{AA=1}
+        nella risposta conferma che si tratta di una risposta autorevole.
+
+    \item \textbf{Il resolver risponde al client e aggiorna la cache.}
+        L'indirizzo IP viene restituito al client e memorizzato in cache per
+        il periodo indicato dal TTL del record.
+\end{enumerate}
+
+\paragraph*{Nota sulla sicurezza.}
+Un nameserver potrebbe teoricamente dichiararsi autoritativo per qualsiasi
+zona, anche quelle che non possiede (es.\ \texttt{bancaitalia.it}). Tuttavia
+questo non ha alcun effetto pratico, perché nessun server di livello superiore
+lo delega mai per quella zona. La gerarchia delle deleghe è il meccanismo
+fondamentale di fiducia del DNS.
+
+\section*{Risoluzione inversa}
+
+Il DNS viene utilizzato anche in direzione opposta: partendo da un
+\textbf{indirizzo IP}, si vuole risalire al corrispondente \emph{hostname}
+(reverse DNS lookup).
+
+Per realizzarlo esiste un dominio speciale: \texttt{in-addr.arpa}. Gli
+indirizzi IP vengono scritti in \textbf{ordine inverso} e appesi a questo
+dominio. Ad esempio, per trovare il nome associato all'IP
+\texttt{64.170.162.98}, si cerca il record \texttt{PTR} di:
+
+\begin{center}
+    \texttt{98.162.170.64.in-addr.arpa}
+\end{center}
+
+L'ordine invertito è necessario perché nella gerarchia DNS la parte più
+generale si trova a \emph{destra} (come nei nomi di dominio), mentre negli
+indirizzi IP la parte più generale è a \emph{sinistra}.
+
+
+\section*{Struttura dei messaggi DNS}
+
+Ogni messaggio DNS --- sia esso una query o una risposta --- è composto da
+\textbf{cinque sezioni}:
+
+\begin{enumerate}[label=\textbf{\arabic*.}]
+    \item \textbf{Header section}: tipo del messaggio, flag di controllo e
+        contatori per le sezioni successive.
+    \item \textbf{Question section}: nome richiesto, tipo di record e classe
+        (quasi sempre \texttt{IN} = Internet). Il numero di domande è quasi
+        sempre pari a 1.
+    \item \textbf{Answer section}: resource record che rispondono alla query.
+    \item \textbf{Authority section}: record \texttt{SOA} o \texttt{NS} che
+        indicano i server autoritativi per la zona.
+    \item \textbf{Additional section}: informazioni aggiuntive utili al client,
+        ad esempio gli indirizzi IP dei nameserver già citati nella sezione
+        Authority.
+\end{enumerate}
+
+I server DNS sono in ascolto sulla \textbf{porta 53/UDP} per le query
+standard. Il protocollo TCP viene impiegato quando la risposta supera la
+dimensione massima del datagramma UDP, o per i trasferimenti di zone intere.
+
+\subsection*{Campi principali dell'header DNS}
+
+\begin{description}[leftmargin=3cm, style=nextline]
+    \item[Query ID / TXID] Identificatore univoco di 16 bit generato dal
+        client. Permette di associare ogni risposta alla query corrispondente,
+        essenziale in un contesto UDP senza connessione.
+    \item[QR] 0 se il messaggio è una query, 1 se è una risposta.
+    \item[Opcode] Tipo di query: 0 per una query standard.
+    \item[AA] \emph{Authoritative Answer}: 1 se la risposta proviene
+        direttamente dal server autoritativo per quella zona.
+    \item[RD] \emph{Recursion Desired}: impostato dal client per indicare
+        che desidera una risposta ricorsiva.
+    \item[RA] \emph{Recursion Available}: impostato dal server per indicare
+        che supporta la ricorsione.
+    \item[RCODE] Codice di ritorno: 0 per successo, altri valori per diversi
+        tipi di errore.
+\end{description}
+
+
+\section*{Ottimizzazioni del DNS}
+
+Il DNS sfrutta due principi classici dell'informatica per gestire l'enorme
+volume di richieste giornaliere.
+
+\subsection*{Caching e TTL}
+
+Ogni resolver memorizza in una \textbf{cache} locale le risposte ottenute,
+per un tempo definito dal campo \textbf{TTL} (Time To Live) del resource
+record. Finché il TTL non scade, il resolver risponde direttamente dalla
+cache senza dover risalire la gerarchia. Questo sfrutta la
+\emph{temporal locality}: gli stessi domini vengono interrogati
+ripetutamente nel tempo.
+
+Quando un resolver risponde dalla cache, il flag \texttt{AA} nella risposta
+non è impostato (risposta \emph{non-authoritative}). Il client riceve comunque
+l'informazione corretta, ma essa potrebbe essere vecchia al massimo quanto
+il TTL.
+
+\subsection*{Replica e prossimità geografica}
+
+Il DNS sfrutta anche la \emph{spatial locality}: i computer locali vengono
+interrogati più frequentemente di quelli remoti. I server vengono replicati
+geograficamente e il client viene indirizzato al nodo fisicamente più vicino
+(o con minor latenza). Questo è il motivo per cui i 13 indirizzi logici dei
+root server corrispondono in realtà a centinaia di istanze fisiche distribuite
+nel mondo.
+
 
 
 \end{document}
